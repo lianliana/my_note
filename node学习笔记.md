@@ -59,8 +59,16 @@ __默认情况下__,exports和module.exports指向同一个对象，后面的操
 ### JWT
 
 - json web token 
-
 - 三部分组成  1.header 2.payload 3.signature
-
 - npm install jsonwebtoken(生成jwt) express-jwt(解析)
-- 
+- npm i jsonwebtoken@8.5.1 npm i express-jwt@5.3.3
+
+### 参数校验
+
+- expressJoi 参数验证
+
+流程
+
+1. npm install @hapi/joi@17/.1.0  //定义验证规则的包
+2. npm i @escook/express-joi  //验证数据的中间件
+3. 
