@@ -4,6 +4,13 @@
 - 解决了代码拆分的问题 commonjs es6模块化
 - 如何让浏览器支持模块
 
+面试回答：
+
+- 将ES6以后的语法转换成ES5 less sass 转换成css
+- 文件优化 压缩代码
+- 公共代码的提取
+- 代码变更后能自动构建刷新浏览器
+
 #### 资源模块 asset module 用来加载js以外的资源
 
 - aseet/resource  发送一个单独的文件并导出url
@@ -251,6 +258,16 @@ module:{
     }
 
 ```
+
+#### Resolve
+
+1. alias:创建Import或require模块的别名，使得模块导入变得简单
+2. extensions:当不带拓展名的模块导入时 会按照extensions的数组顺序依次进行查询
+3. 
+
+
+
+
 
 #### 常用的代码分离方法
 
