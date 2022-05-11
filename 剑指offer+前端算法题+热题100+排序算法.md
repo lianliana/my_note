@@ -2,6 +2,15 @@
 
 
 
+splice() 方法用于添加或删除**数组**中的元素 **改变原始数组** **会返回删除的元素数组**
+
+```js
+var fruits = ["Banana", "Orange", "Apple", "Mango"];
+fruits.splice(2,0,"Lemon","Kiwi");
+fruits 输出结果：
+Banana,Orange,Lemon,Kiwi,Apple,Mango
+```
+
 
 
 
@@ -39,6 +48,900 @@ var restoreIpAddresses = function(s) {
 };
 ```
 
+##### [剑指 Offer II 09用两个栈实现队列](https://leetcode-cn.com/problems/yong-liang-ge-zhan-shi-xian-dui-lie-lcof/)
+
+```js
+var CQueue = function() {
+    this.inStack=[]
+    this.ouStack=[]
+};
+
+/** 
+ * @param {number} value
+ * @return {void}
+ */
+CQueue.prototype.appendTail = function(value) {
+    this.inStack.push(value)
+};
+
+/**
+ * @return {number}
+ */
+CQueue.prototype.deleteHead = function() {
+    if(!this.ouStack.length){
+        if(!this.inStack.length){
+            return -1
+        }
+        while(this.inStack.length){
+            this.ouStack.push(this.inStack.pop())
+        }
+    }
+    return this.ouStack.pop()
+};
+
+```
+
+##### [剑指 Offer 14- I. 剪绳子](https://leetcode-cn.com/problems/jian-sheng-zi-lcof/)
+
+```js
+var cuttingRope = function(n) {
+    let dp=new Array(n+1).fill(1)
+    dp[2]=1
+    for(let i=3;i<=n;i++){
+        for(let j=1;j<i;j++){
+            dp[i]=Math.max(dp[i],Math.max(j*(i-j),j*dp[i-j]))
+        }
+    }
+    return dp[n]
+};
+
+//大数情况下
+var cuttingRope = function(n) {
+    let a=parseInt(n/3)
+    let b=n%3
+    let ans=1
+    if(n<=3){return n-1}
+    if(b==0){
+        ans=myPow(3,a)
+    }else if(b==1){
+        ans=myPow(3,a-1)*4
+    }else if(b==2){
+        ans=myPow(3,a)*2
+    }
+    return ans%1000000007
+};
+function myPow(a,b){
+    let ans=1
+    for(let i=0;i<b;i++){
+        ans*=a
+        ans%=1000000007
+    }
+    return ans
+}
+```
+
+
+
+##### [剑指 Offer 15. 二进制中1的个数](https://leetcode-cn.com/problems/er-jin-zhi-zhong-1de-ge-shu-lcof/)
+
+```js
+var hammingWeight = function(n) {
+    let ans=0
+    for(let i=0;i<32;i++){
+        if(n&(1<<i)){
+            ans++
+        }
+    }
+    return ans
+};
+//加速方法
+var hammingWeight = function(n) {
+    let ans=0
+    while(n){
+        n&=(n-1)
+        ans++
+    }
+    return ans
+};
+```
+
+
+
+##### 快速幂  [剑指 Offer 16. 数值的整数次方](https://leetcode-cn.com/problems/shu-zhi-de-zheng-shu-ci-fang-lcof/) 
+
+```js
+var myPow = function(x, n) {
+    if(n==0)return 1
+    return n>0?quickPow(x,n):1.0/quickPow(x,-n)
+};
+function quickPow(x,n){
+    let xx=x
+    let ans=1.0
+    while(n>0){
+        if(n&1){
+            ans*=xx
+        }
+        xx*=xx
+        n/=2
+    }
+    return ans
+}
+```
+
+
+
+##### [剑指 Offer 18. 删除链表的节点](https://leetcode-cn.com/problems/shan-chu-lian-biao-de-jie-dian-lcof/)
+
+```js
+var deleteNode = function(head, val) {
+    let dummyNode=new ListNode(-1)
+    dummyNode.next=head
+    let pre=dummyNode
+    while(head!=null){
+        let next=head.next
+        if(head.val==val){
+            pre.next=next
+            break
+        }
+        pre=head
+        head=next
+    }
+    return dummyNode.next
+};
+```
+
+
+
+#### 树的递归
+
+##### [剑指 Offer 26. 树的子结构](https://leetcode-cn.com/problems/shu-de-zi-jie-gou-lcof/)
+
+```js
+var isSubStructure = function(A, B) {
+    if(A==null||B==null) return false
+    if(A.val==B.val&&helper(A.left,B.left)&&helper(A.right,B.right)){
+        return true
+    }else{
+        return isSubStructure(A.left,B)||isSubStructure(A.right,B)
+    }
+};
+function helper(A,B){
+    //先判断B是不是null 是的话说明匹配完了  return true
+    if(B==null) return true
+    if(A==null) return false
+    if(A.val==B.val){
+        return helper(A.left,B.left)&&helper(A.right,B.right)
+    }else{
+        return false
+    }
+}
+```
+
+##### [剑指 Offer 28. 对称的二叉树](https://leetcode-cn.com/problems/dui-cheng-de-er-cha-shu-lcof/)
+
+```js
+var isSymmetric = function(root) {
+    return helper(root,root)
+};
+function helper(left,right){
+    if(!left&&!right) return true
+    if(!left||!right) return false
+    return left.val==right.val&&helper(left.left,right.right)&&helper(left.right,right.left)
+}
+```
+
+
+
+##### [剑指 Offer 29. 顺时针打印矩阵](https://leetcode-cn.com/problems/shun-shi-zhen-da-yin-ju-zhen-lcof/)
+
+```js
+let ans=[]
+var spiralOrder = function(matrix) {
+    ans=[]
+    let diretion=1
+    let mark=new Array(matrix.length).fill(false).map(()=>new Array(matrix[0].length).fill(false))
+    for(let i=0;i<matrix.length;i++){
+        if(mark[i][i]==false){
+            mark[i][i]=true
+            dfs(i,i,diretion,matrix,mark)
+        }
+    }
+    return ans
+};
+function dfs(x,y,diretion,matrix,mark){
+    ans.push(matrix[x][y])
+    if(diretion%4==1){
+        if(y+1<matrix[0].length&&mark[x][y+1]==false){
+            mark[x][y+1]=true
+            dfs(x,y+1,diretion,matrix,mark)
+        }else{
+            diretion++
+        }
+    }
+    if(diretion%4==2){
+        if(x+1<matrix.length&&mark[x+1][y]==false){
+            mark[x+1][y]=true
+            dfs(x+1,y,diretion,matrix,mark)
+        }else{
+            diretion++
+        }
+    }
+    if(diretion%4==3){
+        if(y-1>=0&&mark[x][y-1]==false){
+            mark[x][y-1]=true
+            dfs(x,y-1,diretion,matrix,mark)
+        }else{
+            diretion++
+        }
+    }
+    if(diretion%4==0){
+        if(x-1>=0&&mark[x-1][y]==false){
+            mark[x-1][y]=true
+            dfs(x-1,y,diretion,matrix,mark)
+        }else{
+            diretion++
+        }
+    }
+}
+```
+
+
+
+##### [剑指 Offer 30. 包含min函数的栈](https://leetcode-cn.com/problems/bao-han-minhan-shu-de-zhan-lcof/)
+
+```js
+var MinStack = function() {
+    this.stack=[]
+    this.minStack=[]
+    this.minn=Number.MAX_VALUE
+};
+
+MinStack.prototype.push = function(x) {
+    this.stack.push(x)
+    if(x<this.minn){
+        this.minStack.push(x)
+        this.minn=x
+    }else{
+        this.minStack.push(this.minn)
+    }
+};
+
+
+MinStack.prototype.pop = function() {
+    this.stack.pop()
+    this.minStack.pop()
+    this.minn=this.minStack[this.minStack.length-1]
+    if(this.stack.length==0){
+        this.minn=Number.MAX_VALUE
+    }
+};
+
+
+MinStack.prototype.top = function() {
+    return this.stack[this.stack.length-1]
+};
+
+
+MinStack.prototype.min = function() {
+    return this.minStack[this.minStack.length-1]
+};
+
+```
+
+
+
+##### [剑指 Offer 31. 栈的压入、弹出序列](https://leetcode-cn.com/problems/zhan-de-ya-ru-dan-chu-xu-lie-lcof/)
+
+```js
+//直接模拟压栈和出栈操作
+var validateStackSequences = function(pushed, popped) {
+    let stack=[]
+    let k=0
+    for(let i=0;i<pushed.length;i++){
+        stack.push(pushed[i])
+        if(pushed[i]==popped[k]){
+            k++
+            stack.pop()
+        }
+        while(stack[stack.length-1]==popped[k]&&stack.length>0){
+            k++
+            stack.pop()
+        }
+    }
+    if(stack.length==0){
+        return true
+    }else{
+        return false
+    }
+};
+```
+
+
+
+##### [剑指 Offer 32 - II. 从上到下打印二叉树 II](https://leetcode-cn.com/problems/cong-shang-dao-xia-da-yin-er-cha-shu-ii-lcof/)
+
+```js
+var levelOrder = function(root) {
+    let queue=[]
+    let ans=[]
+    queue.push(root)
+    while(queue.length!=0){
+        let ceng=[]
+        while(queue.length!=0){
+            ceng.push(queue.shift())
+        }
+        let temp=[]
+        for(let i=0;i<ceng.length;i++){
+            if(ceng[i]!=null){
+                temp.push(ceng[i].val)
+                queue.push(ceng[i].left)
+                queue.push(ceng[i].right)
+            }
+        }
+        if(temp.length!=0)
+        ans.push(temp)
+    }
+    return ans
+};
+```
+
+
+
+##### [剑指 Offer 33. 二叉搜索树的后序遍历序列](https://leetcode-cn.com/problems/er-cha-sou-suo-shu-de-hou-xu-bian-li-xu-lie-lcof/)
+
+```js
+var verifyPostorder = function(postorder) {
+    return recur(postorder,0,postorder.length-1)
+};
+function recur(postorder,i,j){
+    if(i>=j) return true
+    let pos=i
+    //找到比root小的
+    while(postorder[pos]<postorder[j]){
+        pos++
+    }
+    //看右边是不是都比根节点大
+    let pps=pos
+    while(postorder[pos]>postorder[j]){
+        pos++
+    }
+    //如果pos走到了j&&左子树也符合 右子树也符合 则为真 ，记得pos-1是因为闭区间pos++了  j-1是去掉根节点
+    return pos==j&&recur(postorder,i,pos-1)&&recur(postorder,pos,j-1)
+}
+```
+
+##### [剑指 Offer 34. 二叉树中和为某一值的路径](https://leetcode-cn.com/problems/er-cha-shu-zhong-he-wei-mou-yi-zhi-de-lu-jing-lcof/)
+
+```js
+//难度更高请看 https://leetcode-cn.com/problems/path-sum-iii/
+var pathSum = function(root, target) {
+    let map=new Map()
+    let ans=[]
+    dfs(root,target,[],0)
+    function dfs(root,target,arr,sum){
+        if(root==null) return 0
+        sum+=root.val
+        arr.push(root.val)
+        if(sum==target&&root.left==null&&root.right==null){
+            ans.push(JSON.parse(JSON.stringify(arr)))
+        }
+        let arr1=JSON.parse(JSON.stringify(arr))
+        dfs(root.left,target,arr,sum)
+        dfs(root.right,target,arr1,sum)
+    }
+    return ans
+};
+```
+
+
+
+##### [剑指 Offer 35. 复杂链表的复制](https://leetcode-cn.com/problems/fu-za-lian-biao-de-fu-zhi-lcof/)
+
+```js
+//hash表解法
+var copyRandomList = function(head) {
+    let cur=head
+    let map=new Map()
+    while(cur!=null){
+        let node=new Node(cur.val)
+        map.set(cur,node)
+        cur=cur.next
+    }
+    cur=head
+    while(cur!=null){
+        let node=map.get(cur)
+        node.next=map.get(cur.next)||null
+        node.random=map.get(cur.random)||null
+        cur=cur.next
+    }
+    return map.get(head)
+}
+
+var copyRandomList = function(head) {
+    if(head==null) return 
+    let cur=head
+    //复制链表
+    while(cur!=null){
+        let node=new Node(cur.val)
+        node.next=cur.next
+        cur.next=node
+        cur=node.next
+    }
+    //补上random指针
+    cur=head
+    while(cur!=null){
+        node=cur.next
+        if(cur.random!=null){
+            node.random=cur.random.next
+        }
+        cur=node.next
+    }
+    //拆分链表
+    cur=head.next
+    let pre=head
+    let newHead = cur
+    while(cur.next!=null){
+        pre.next=pre.next.next
+        cur.next=cur.next.next
+        cur=cur.next
+        pre=pre.next
+    }
+    pre.next=null
+    return newHead
+}
+```
+
+
+
+##### [剑指 Offer 36. 二叉搜索树与双向链表](https://leetcode-cn.com/problems/er-cha-sou-suo-shu-yu-shuang-xiang-lian-biao-lcof/)
+
+```js
+let pre=null,head=null
+var treeToDoublyList = function(root) {
+    pre=null
+    head=null
+    if(root==null) return null
+    dfs(root)
+    pre.right=head //进行头节点和尾节点的相互指向，这两句的顺序也是可以颠倒的
+    head.left=pre
+    return head
+};
+function dfs(root){
+    if(root==null) return null
+    dfs(root.left)
+    //pre用于记录双向链表中位于cur左侧的节点，即上一次迭代中的cur,当pre==null时，cur左侧没有节点,即此时cur为双向链表中的头节点
+    if(pre==null){
+        head=root
+    }
+    //反之，pre!=null时，cur左侧存在节点pre，需要进行pre.right=cur的操作。
+    else{
+        pre.right=root
+    }
+    root.left=pre//pre是否为null对这句没有影响,且这句放在上面两句if else之前也是可以的
+    pre=root//pre指向当前的cur
+    dfs(root.right)//全部迭代完成后，pre指向双向链表中的尾节点
+}
+```
+
+
+
+##### [剑指 Offer 38. 字符串的排列](https://leetcode-cn.com/problems/zi-fu-chuan-de-pai-lie-lcof/)
+
+```js
+var permutation = function(s) {
+    let ret=[]
+    let memo=new Array(s.length).fill(false)
+    dfs(s,[])
+    function dfs(s,res){
+        if(s.length==res.length){
+            //如果不重复才加入res
+            if(!ret.includes(res.join(''))){
+                ret.push(res.join(''))
+            }
+            return 
+        }
+        //for循环如果该元素没用过就用
+        for(let i=0;i<s.length;i++){
+            if(memo[i]==false){
+                res.push(s[i])
+                memo[i]=true
+                dfs(s,res)
+                memo[i]=false
+                res.pop(s[i])
+            }
+        }
+    }
+    return ret
+};
+```
+
+
+
+##### [剑指 Offer 44. 数字序列中某一位的数字](https://leetcode-cn.com/problems/shu-zi-xu-lie-zhong-mou-yi-wei-de-shu-zi-lcof/)
+
+```js
+var findNthDigit = function(n) {
+    let digit=1 //位数
+    let start=1 //开始的数字
+    let count=9 //该位数下有多少个数字
+    while(n>count){
+        n-=count
+        digit++
+        start*=10 //开始数字是 1 10 100 1000
+        count=digit*start*9 //数字个数
+    }
+    //找到是哪个数
+    let num=start+Math.floor((n-1)/digit)
+    //找到是这个数字的哪一位
+    return String(num)[Math.floor((n-1)%digit)]
+};
+```
+
+
+
+
+
+
+
+##### [剑指 Offer 45. 把数组排成最小的数](https://leetcode-cn.com/problems/ba-shu-zu-pai-cheng-zui-xiao-de-shu-lcof/)
+
+```js
+var minNumber = function(nums) {
+    nums.sort((a,b)=>{
+        return (a+''+b)-(b+''+a)
+    })
+    return nums.join('')
+};
+```
+
+
+
+##### [剑指 Offer 46. 把数字翻译成字符串](https://leetcode-cn.com/problems/ba-shu-zi-fan-yi-cheng-zi-fu-chuan-lcof/)
+
+```js
+//注意点1 num是数字 所以要先string化
+// dp[i]=dp[i-1]+dp[i-2]  或  dp[i]=dp[i-1]
+var translateNum = function(num) {
+    if(String(num).length==0){
+        return 0
+    }
+    let dp=new Array(String(num).length+1).fill(0)
+    dp[1]=1
+    let temp=Number(String(num)[0]+String(num)[1])
+    //如果在10到25之间 那么说明可以翻译 for循环里相同
+    if (temp >= 10 && temp <= 25) {
+        dp[2]=2
+    }else{
+        dp[2]=1
+    }
+    for(let i=3;i<=String(num).length;i++){
+        temp=Number(String(num)[i-2]+String(num)[i-1])
+        if (temp >= 10 && temp <= 25) {
+            dp[i]=dp[i-1]+dp[i-2]
+        }else{
+            dp[i]=dp[i-1]
+        }
+    }
+    return dp[String(num).length]
+};
+```
+
+
+
+##### [剑指 Offer 48. 最长不含重复字符的子字符串](https://leetcode-cn.com/problems/zui-chang-bu-han-zhong-fu-zi-fu-de-zi-zi-fu-chuan-lcof/)
+
+```js
+var lengthOfLongestSubstring = function(s) {
+    //用队列来进行滑动窗口写法
+    let ans=1
+    if(s.length==0) return 0
+    let queue=[]
+    let ch=s[0]
+    let pos=1
+    queue.push(ch)
+    while(pos<s.length){
+        ch=s[pos]
+        if(queue.includes(ch)){
+            while(queue.includes(ch)&&queue.length){
+                queue.shift()
+            }
+        }
+        queue.push(ch)
+        if(queue.length>ans){
+            ans=queue.length
+        }
+        pos++
+    }
+    return ans
+};
+```
+
+
+
+##### [剑指 Offer 49. 丑数](https://leetcode-cn.com/problems/chou-shu-lcof/)
+
+```js
+//看题解
+var nthUglyNumber = function(n) {
+    let a,b,c
+    a=b=c=0
+    let dp=new Array(n).fill(0)
+    dp[0]=1
+    for(let i=1;i<n;i++){
+        let n1=dp[a]*2
+        let n2=dp[b]*3
+        let n3=dp[c]*5
+        dp[i]=Math.min(n1,n2,n3)
+        if(dp[i]==n1) a++
+        if(dp[i]==n2) b++
+        if(dp[i]==n3) c++
+    }
+    return dp[n-1]
+};
+```
+
+
+
+##### [剑指 Offer 50. 第一个只出现一次的字符](https://leetcode-cn.com/problems/di-yi-ge-zhi-chu-xian-yi-ci-de-zi-fu-lcof/)
+
+```js
+var firstUniqChar = function(s) {
+    //lodash中计算频次的函数
+    const frequency=_.countBy(s)
+    for(const item of Array.from(s)){
+        //如果频次为1 则返回
+        if(frequency[item]==1){
+            return item
+        }
+    }
+    return ' '
+};
+```
+
+
+
+##### [剑指 Offer 52. 两个链表的第一个公共节点](https://leetcode-cn.com/problems/liang-ge-lian-biao-de-di-yi-ge-gong-gong-jie-dian-lcof/)
+
+```js
+var getIntersectionNode = function(headA, headB) {
+    if(headA==null||headB==null){
+        return null
+    }
+    let p1=headA
+    let p2=headB
+    while(p1!=p2){
+        p1=p1==null?headB:p1.next
+        p2=p2==null?headA:p2.next
+    }
+    return p1
+};
+```
+
+
+
+##### [剑指 Offer 53 - I. 在排序数组中查找数字 I](https://leetcode-cn.com/problems/zai-pai-xu-shu-zu-zhong-cha-zhao-shu-zi-lcof/)
+
+```js
+//使用二分搜索左边界法
+var search = function(nums, target) {
+    let left=0
+    let right=nums.length-1
+    while(left<=right){
+        let mid=left+Math.floor((right-left)/2)
+        if(nums[mid]==target){
+            right=mid-1
+        }else if(nums[mid]>target){
+            right=mid-1
+        }else if(nums[mid]<target){
+            left=mid+1
+        }
+    }
+    if(nums[left]!=target||left>=nums.length){
+        return 0
+    }else{
+        let count=0
+        for(let i=left;i<nums.length;i++){
+            if(nums[i]==target){
+                count++
+            }
+        }
+        return count
+    }
+};
+```
+
+
+
+##### [剑指 Offer 53 - II. 0～n-1中缺失的数字](https://leetcode-cn.com/problems/que-shi-de-shu-zi-lcof/)
+
+```js
+//二分法
+var missingNumber = function(nums) {
+    let left=0
+    let right=nums.length-1
+    while(left<=right){
+        let mid=left+Math.floor((right-left)/2)		
+        if(nums[mid]==mid){
+            left=mid+1
+        }else{
+            right=mid-1
+        }
+    }
+    return left
+};
+```
+
+
+
+##### [剑指 Offer 55 - II. 平衡二叉树](https://leetcode-cn.com/problems/ping-heng-er-cha-shu-lcof/)
+
+```js
+var isBalanced = function(root) {
+    let ans=dfs(root)
+    function dfs(root){
+        if(root==null){
+            return 0
+        }
+        let left=dfs(root.left)
+        let right=dfs(root.right)
+        if(left==-1||right==-1||Math.abs(left-right)>1){
+            return -1
+        }else{
+            return Math.max(left,right)+1
+        }
+    }
+    if(ans==-1){
+        return false
+    }else{
+        return true
+    }
+};
+```
+
+
+
+##### [剑指 Offer 56 - II. 数组中数字出现的次数 II](https://leetcode.cn/problems/shu-zu-zhong-shu-zi-chu-xian-de-ci-shu-ii-lcof/)
+
+```js
+//方法1 hash表 同下
+
+//方法2 分组异或， 找到一个异或为1的位 然后根据这位去分组 分组后就ok
+var singleNumbers = function(nums) {
+    let yiHuo=0
+    for(let i=0;i<nums.length;i++){
+        let n=nums[i]
+        yiHuo^=n
+    }
+    let flag=1
+    while((flag&yiHuo)==0){
+        flag<<=1
+    }
+    let a=0
+    let b=0
+    for(let n of nums){
+        if(flag&n){
+            a^=n
+        }else{
+            b^=n
+        }
+    }
+    return [a,b]
+};
+```
+
+
+
+##### [剑指 Offer 56 - I. 数组中数字出现的次数](https://leetcode.cn/problems/shu-zu-zhong-shu-zi-chu-xian-de-ci-shu-lcof/)
+
+```js
+//方法1 hash表
+var singleNumbers = function(nums) {
+    let map={}
+    for(let i=0;i<nums.length;i++){
+        let n=nums[i]
+        if(map[n]){
+            delete map[n]
+        }else{
+            map[n]=1
+        }
+    }
+    return Object.keys(map)
+};
+//方法2 统一二进制每一位上1个个数后%3
+var singleNumber = function(nums) {
+    let count=new Array(32).fill(0)
+    for(let i=0;i<nums.length;i++){
+        let n=nums[i]
+        for(let j=0;j<32;j++){
+            count[j]+=n&1
+            n=n>>1
+        }
+    }
+    let res
+    for(let i=0;i<32;i++){
+        res<<=1
+        res|=count[31-i]%3
+    }
+    return res
+};
+```
+
+
+
+
+
+##### [239. 滑动窗口最大值](https://leetcode.cn/problems/sliding-window-maximum/)
+
+```js
+//同算法小抄笔记中的
+var maxSlidingWindow = function(nums, k) {
+    let ans=[]
+    let queue=[]
+    for(let i=0;i<nums.length;i++){
+        if(i-queue[0]>k-1){
+            queue.shift()
+        }
+        if(queue.length){
+            while(nums[i]>nums[queue[queue.length-1]]){
+                queue.pop()
+            }
+        }
+        queue.push(i)
+        if(i>=k-1){
+            ans.push(nums[queue[0]])
+        }
+    }
+    return ans
+};
+```
+
+
+
+
+
+
+
+
+
+##### [正则表达式匹配](https://leetcode-cn.com/problems/regular-expression-matching/)
+
+```js
+var isMatch = function(s, p) {
+    let dp=new Array(s.length+1).fill(false).map(()=>new Array(p.length+1).fill(false))
+    dp[0][0]=true
+    for(let i=0;i<=s.length;i++){
+        for(let j=1;j<=p.length;j++){
+            if(p[j-1]=='*'){
+                //看j-2也就是*前第两个位置
+                dp[i][j]=dp[i][j-2]
+                if(myMatch(s,p,i,j-1)){
+                    dp[i][j]=dp[i][j]||dp[i-1][j]
+                }
+            }else{
+                //不是* 则直接看i,j是否匹配
+                if(myMatch(s,p,i,j)){
+                    dp[i][j]=dp[i-1][j-1]
+                }
+            }
+        }
+    }
+    return dp[s.length][p.length]
+};
+function myMatch(s,p,i,j){
+    if(i==0){
+        return false
+    }
+    if(p[j-1]=='.'){
+        return true
+    }
+    return s[i-1]==p[j-1]
+}
+```
+
+
+
+
+
 ### 热题100
 
 ###### [17. 电话号码的字母组合](https://leetcode-cn.com/problems/letter-combinations-of-a-phone-number/)
@@ -75,6 +978,7 @@ var nextPermutation = function(nums) {
     let pre=nums[nums.length-1]
     let mark=0
     for(let i=nums.length-2;i>=0;i--){
+        //如果长度为1的数组
         if(i==-1) return nums.sort()
         let cur=nums[i]
         if(cur<pre){
@@ -82,25 +986,24 @@ var nextPermutation = function(nums) {
                 if(nums[j]>cur){
                     nums[i]=nums[j]
                     nums[j]=cur
+                    mark=i+1
                     break
                 }
             }
-            mark=i+1
             break
         }else{
             pre=cur
         }
     }
+    //从mark开始排序 这里用的是冒泡 可以用双指针
     for(let i=mark;i<nums.length;i++){
-        for(let j=mark;j<nums.length+i-mark-1;j++){
+        for(let j=mark;j<nums.length-i+mark-1;j++){
             if(nums[j]>nums[j+1]){
-                let temp=nums[j]
-                nums[j]=nums[j+1]
-                nums[j+1]=temp
+                [nums[j],nums[j+1]]=[nums[j+1],nums[j]]
             }
         }
     }
-    return n
+};
 ```
 
 ###### 11.  [盛最多水的容器](https://leetcode-cn.com/problems/container-with-most-water/)
@@ -755,6 +1658,10 @@ var subarraySum = function(nums, k) {
 
 
 
+
+
+
+
 ###### 647 [回文子串](https://leetcode-cn.com/problems/palindromic-substrings/)
 
 ```js
@@ -859,6 +1766,8 @@ var findUnsortedSubarray = function(nums) {
 ### 排序算法
 
 ##### 堆排序
+
+###### [数组中的第K个最大元素](https://leetcode-cn.com/problems/kth-largest-element-in-an-array/)
 
 参考文献：https://leetcode-cn.com/problems/kth-largest-element-in-an-array/solution/xie-gei-qian-duan-tong-xue-de-ti-jie-yi-kt5p2/
 
