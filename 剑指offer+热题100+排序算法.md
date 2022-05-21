@@ -15,39 +15,6 @@ Banana,Orange,Lemon,Kiwi,Apple,Mango
 
 
 
-### 前端算法
-
-##### [剑指 Offer II 087. 复原 IP ](https://leetcode-cn.com/problems/0on3uN/)
-
-```js
-var restoreIpAddresses = function(s) {
-    let l=s.length
-    let ans=[]
-    //i,j,k表示.分割的位置
-    for(let i=1;i<4;i++){
-        for(let j=i+1;j<i+4;j++){
-            for(let k=j+1;k<j+4;k++){
-                let a=s.slice(0,i)
-                let b=s.slice(i,j)
-                let c=s.slice(j,k)
-                let d=s.slice(k,l)
-                if(check(a)&&check(b)&&check(c)&&check(d)){
-                    ans.push(a+'.'+b+'.'+c+'.'+d)
-                }
-            }
-        }
-    }
-    function check(str){
-        let num=parseInt(str)
-        //如果转成num后再转回字符串不一样 说明可能是0开头的
-        if(num+''!=str) return false
-        if(num>=0&&num<=255) return true
-        return false
-    }
-    return ans
-};
-```
-
 ##### [剑指 Offer II 09用两个栈实现队列](https://leetcode-cn.com/problems/yong-liang-ge-zhan-shi-xian-dui-lie-lcof/)
 
 ```js
@@ -868,6 +835,225 @@ var singleNumber = function(nums) {
 
 
 
+##### [剑指 Offer 59 - II. 队列的最大值](https://leetcode.cn/problems/dui-lie-de-zui-da-zhi-lcof/)
+
+```js
+var MaxQueue = function() {
+    this.queue=[]
+    this.maxqueue=[]
+};
+
+MaxQueue.prototype.max_value = function() {
+    return this.maxqueue.length?this.maxqueue[0]:-1
+};
+
+MaxQueue.prototype.push_back = function(value) {
+    this.queue.push(value)
+    while(this.maxqueue.length&&value>this.maxqueue[this.maxqueue.length-1]){
+        this.maxqueue.pop()
+    }
+    this.maxqueue.push(value)
+    return null
+};
+
+MaxQueue.prototype.pop_front = function() {
+    if(this.queue.length==0){
+        return -1
+    }
+    let value=this.queue.shift()
+    if(value==this.maxqueue[0]){
+        this.maxqueue.shift()
+    }
+    return value
+};
+
+```
+
+
+
+##### [剑指 Offer 61. 扑克牌中的顺子](https://leetcode.cn/problems/bu-ke-pai-zhong-de-shun-zi-lcof/)
+
+```js
+var isStraight = function(nums) {
+    let set=new Set() //用set看有无重复的元素
+    let min=14
+    let max=0
+    for(let item of nums){
+        if(item==0) continue //如果是0直接跳过
+        min=Math.min(item,min)
+        max=Math.max(item,max)
+        if(set.has(item)){
+            return false
+        }else{
+            set.add(item)
+        }
+    }
+    //如果max-min<5说明可以是顺子 不能判断为4 因为存在11 0 0 0 0 的情况
+    return max-min<5
+};
+```
+
+
+
+##### [剑指 Offer 62. 圆圈中最后剩下的数字](https://leetcode.cn/problems/yuan-quan-zhong-zui-hou-sheng-xia-de-shu-zi-lcof/)
+
+```js
+var lastRemaining = function(n, m) {
+    let x=0
+    for(let i=2;i<=n;i++){
+        x=(x+m)%i
+    }
+    return x
+};//约瑟夫环问题 看题解
+```
+
+
+
+##### [剑指 Offer 64. 求1+2+…+n](https://leetcode.cn/problems/qiu-12n-lcof/)
+
+```js
+var sumNums = function(n) {
+    let A=n;
+    let B=n+1;
+    let ans=0;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    (B&1)&&(ans+=A);
+    A<<=1;
+    B>>=1;
+    return ans>>=1
+};
+```
+
+
+
+##### [剑指 Offer 65. 不用加减乘除做加法](https://leetcode.cn/problems/bu-yong-jia-jian-cheng-chu-zuo-jia-fa-lcof/)
+
+```js
+var add = function(a, b) {
+    let c
+    while(b!=0){
+        c=(a&b)<<1 //进位
+        a=a^b //非进位和
+        b=c //进位
+    }
+    return a
+};
+```
+
+
+
+##### [剑指 Offer 66. 构建乘积数组](https://leetcode.cn/problems/gou-jian-cheng-ji-shu-zu-lcof/)
+
+```js
+//整体思路 两个前缀和
+var constructArr = function(a) {
+    let left=new Array(a.length).fill(1)
+    let right=new Array(a.length).fill(1)
+    left[0]=1
+    right[a.length-1]=1
+    for(let i=1;i<a.length;i++){
+        left[i]=left[i-1]*a[i-1]
+    }
+    for(let i=a.length-2;i>=0;i--){
+        right[i]=right[i+1]*a[i+1]    
+    }
+    let ans=new Array(a.length).fill(1)
+    for(let i=0;i<a.length;i++){
+        ans[i]=left[i]*right[i]
+    }
+    return ans
+};
+```
+
+
+
+
+
+##### [剑指 Offer 67. 把字符串转换成整数](https://leetcode.cn/problems/ba-zi-fu-chuan-zhuan-huan-cheng-zheng-shu-lcof/)
+
+```js
+//待优化
+var strToInt = function(str) {
+    let started=false
+    let flag=true
+    let left=0
+    let right=0
+    str=str.trim()
+    for(let i=0;i<str.length;i++){
+        let ch=str[i]
+        if(started==false&&(ch=='+'||ch=='-')){
+            started=true
+            flag=ch=='+'?true:false
+            left=i+1
+            if(Number(str[left])!=str[left]||str[left]==' '){
+                return 0
+            }
+            continue
+        }
+        if(started==false&&Number(str[left])==str[left]){
+            left=i
+            started=true
+            continue
+        }
+        if(started==false&&Number(str[left])!=str[left]){
+            return 0
+        }
+        if(started==true&&Number(str[i])==str[i]&&str[i]!=' '){
+            right=i
+            continue
+        }
+        if(started==true&&Number(str[i])!=str[i]||str[i]==' '){
+            if(str.slice(left,right+1)>=Math.pow(2,31)||str.slice(left,right+1)<Math.pow(-2,31))
+                return flag?Math.pow(2,31)-1:'-'+Math.pow(2,31)
+            return flag?str.slice(left,right+1):'-'+str.slice(left,right+1)
+        }
+    }
+    if(str.slice(left,right+1)>=Math.pow(2,31)||str.slice(left,right+1)<Math.pow(-2,31))
+                return flag?Math.pow(2,31)-1:'-'+Math.pow(2,31)
+            return flag?str.slice(left,right+1):'-'+str.slice(left,right+1)
+};
+```
+
+
+
 
 
 ##### [239. 滑动窗口最大值](https://leetcode.cn/problems/sliding-window-maximum/)
@@ -892,6 +1078,32 @@ var maxSlidingWindow = function(nums, k) {
         }
     }
     return ans
+};
+```
+
+
+
+##### 
+
+```js
+var dicesProbability = function(n) {
+    //初始值 1/6的概率
+    //从0开始的数组
+    let dp1=new Array(6).fill(1/6)
+    for(let i=2;i<=n;i++){
+        //因为dp1[i]的概率只会影响dp2[i]到dp2[i+5]
+        let dp2=new Array(i*5+1).fill(0)
+        //外层是dp1的每一个情况的概率
+        for(let j=0;j<dp1.length;j++){
+            //这个是筛子的长度
+            for(let k=0;k<6;k++){
+                dp2[j+k]+=dp1[j]/6
+            }
+        }
+        //更新
+        dp1=dp2
+    }
+    return dp1
 };
 ```
 
