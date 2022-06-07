@@ -48,15 +48,43 @@ CQueue.prototype.deleteHead = function() {
 
 ```
 
+
+
+##### [剑指 Offer 11. 旋转数组的最小数字](https://leetcode.cn/problems/xuan-zhuan-shu-zu-de-zui-xiao-shu-zi-lcof/)
+
+```js
+var minArray = function(numbers) {
+    let left = 0
+    let length = numbers.length
+    let right = length-1
+    while(left<right){
+        let mid = left + Math.floor((right-left)/2)
+        if(numbers[mid]>numbers[right]){ //情况1 
+            left = mid + 1
+        }else if(numbers[mid]<numbers[right]){ //情况2
+            right = mid  
+        }else{
+            right--
+        }
+    }
+    return numbers[left]
+};
+```
+
+
+
+
+
 ##### [剑指 Offer 14- I. 剪绳子](https://leetcode-cn.com/problems/jian-sheng-zi-lcof/)
 
 ```js
 var cuttingRope = function(n) {
-    let dp=new Array(n+1).fill(1)
-    dp[2]=1
+    let dp = new Array(n+1).fill(0)
+    dp[2] = 1
+    dp[3] = 2
     for(let i=3;i<=n;i++){
-        for(let j=1;j<i;j++){
-            dp[i]=Math.max(dp[i],Math.max(j*(i-j),j*dp[i-j]))
+        for(let j=1;j<=Math.floor(i/2);j++){
+            dp[i] = Math.max(dp[i],j*(i-j),j*dp[i-j])
         }
     }
     return dp[n]
@@ -124,11 +152,13 @@ var myPow = function(x, n) {
 function quickPow(x,n){
     let xx=x
     let ans=1.0
+    //对应二进制
     while(n>0){
+        //如果该位为1 则乘进x
         if(n&1){
             ans*=xx
         }
-        xx*=xx
+        xx*=xx //底数一直平方
         n/=2
     }
     return ans

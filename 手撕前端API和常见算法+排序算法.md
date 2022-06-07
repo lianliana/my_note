@@ -33,6 +33,44 @@ var restoreIpAddresses = function(s) {
 
 
 
+
+
+##### 大数相加
+
+```js
+function add(a,b){
+    let maxLength = Math.max(a.length,b.length)
+    a = a.padStart(maxLength,0)
+    b = b.padStart(maxLength,0)
+    let f = 0 //进位
+    let sum
+    let ans = ''
+    for(let i=maxLength-1;i>=0;i--){
+        sum = parseInt(a[i]) + parseInt(b[i]) + f
+        f = Math.floor(sum / 10)
+        ans = sum%10 + ans 
+    }
+    if(f == 1){
+        sum = '1' + sum
+    }
+    return ans
+}
+```
+
+
+
+
+
+
+
+
+
+### 前端手写
+
+
+
+
+
 ##### 数据类型判断
 
 ```js
