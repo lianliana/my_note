@@ -93,3 +93,221 @@ React16架构可以分为三层：
 	1. 绑定事件尽量不要用箭头函数，因为每次更新的时候都会创建实例函数
 	1. 通过shouldComponentUpdate、PureComponent、React.memo来控制react的渲染 (因为react 在render的时候牵一发而动全身)
 	1. 
+
+
+
+
+
+
+
+
+
+
+
+### React setState 调用之后发生了什么？是同步还是异步？
+
+**（1）React中setState后发生了什么**
+
+在代码中调用setState函数之后，React 会将传入的参数对象与组件当前的状态合并，然后触发调和过程(Reconciliation)。经过调和过程，React 会以相对高效的方式根据新的状态构建 React 元素树并且着手重新渲染整个UI界面。
+
+在 React 得到元素树之后，React 会自动计算出新的树与老树的节点差异，然后根据差异对界面进行最小化重渲染。在差异计算算法中，React 能够相对精确地知道哪些位置发生了改变以及应该如何改变，这就保证了按需更新，而不是全部重新渲染。
+
+如果在短时间内频繁setState。React会将state的改变压入栈中，在合适的时机，批量更新state和视图，达到提高性能的效果。
+
+**（2）setState 是同步还是异步的**
+
+假如所有setState是同步的，意味着每执行一次setState时（有可能一个同步代码中，多次setState），都重新vnode diff + dom修改，这对性能来说是极为不好的。如果是异步，则可以把一个同步代码中的多个setState合并成一次组件更新。所以默认是异步的，但是在一些情况下是同步的。
+
+setState 并不是单纯同步/异步的，它的表现会因调用场景的不同而不同。在源码中，通过 isBatchingUpdates 来判断setState 是先存进 state 队列还是直接更新，如果值为 true 则执行异步操作，为 false 则直接更新。
+
+- **异步：** 在 React 可以控制的地方，就为 true，比如在 React 生命周期事件和合成事件中，都会走合并操作，延迟更新的策略。
+- **同步：** 在 React 无法控制的地方，比如原生事件，具体就是在 addEventListener 、setTimeout、setInterval 等事件中，就只能同步更新。
+
+一般认为，做异步设计是为了性能优化、减少渲染次数：
+
+- `setState`设计为异步，可以显著的提升性能。如果每次调用 `setState`都进行一次更新，那么意味着`render`函数会被频繁调用，界面重新渲染，这样效率是很低的；最好的办法应该是获取到多个更新，之后进行批量更新；
+- 如果同步更新了`state`，但是还没有执行`render`函数，那么`state`和`props`不能保持同步。`state`和`props`不能保持一致性，会在开发中产生很多的问题；
+
+
+
+
+
+### React中有使用过getDefaultProps吗？它有什么作用？
+
+通过实现组件的getDefaultProps，对属性设置默认值（ES5的写法）：
+
+```javascript
+var ShowTitle = React.createClass({
+  getDefaultProps:function(){
+    return{
+      title : "React"
+    }
+  },
+  render : function(){
+    return <h1>{this.props.title}</h1>
+  }
+});
+```
+
+
+
+
+
+###  React中的setState和replaceState的区别是什么？
+
+setState 是修改其中的部分状态，相当于 Object.assign，只是覆盖，不会减少原来的状态。而replaceState 是完全替换原来的状态，相当于赋值，将原来的 state 替换为另一个对象，如果新状态属性减少，那么 state 中就没有这个状态了。
+
+
+
+
+
+###  state 是怎么注入到组件的，从 reducer 到组件经历了什么样的过程
+
+通过connect和mapStateToProps将state注入到组件中:
+
+**高阶组件实现源码∶**
+
+```react
+import React from 'react'
+import PropTypes from 'prop-types'
+
+// 高阶组件 contect 
+export const connect = (mapStateToProps, mapDispatchToProps) => (WrappedComponent) => {
+    class Connect extends React.Component {
+        // 通过对context调用获取store
+        static contextTypes = {
+            store: PropTypes.object
+        }
+
+        constructor() {
+            super()
+            this.state = {
+                allProps: {}
+            }
+        }
+
+        // 第一遍需初始化所有组件初始状态
+        componentWillMount() {
+            const store = this.context.store
+            this._updateProps()
+            store.subscribe(() => this._updateProps()); // 加入_updateProps()至store里的监听事件列表
+        }
+
+        // 执行action后更新props，使组件可以更新至最新状态（类似于setState）
+        _updateProps() {
+            const store = this.context.store;
+            let stateProps = mapStateToProps ?
+                mapStateToProps(store.getState(), this.props) : {} // 防止 mapStateToProps 没有传入
+            let dispatchProps = mapDispatchToProps ?
+                mapDispatchToProps(store.dispatch, this.props) : {
+                                    dispatch: store.dispatch
+                                } // 防止 mapDispatchToProps 没有传入
+            this.setState({
+                allProps: {
+                    ...stateProps,
+                    ...dispatchProps,
+                    ...this.props
+                }
+            })
+        }
+
+        render() {
+            return <WrappedComponent {...this.state.allProps} />
+        }
+    }
+    return Connect
+}
+
+```
+
+
+
+
+
+
+
+### React中的props为什么是只读的？
+
+`this.props`是组件之间沟通的一个接口，原则上来讲，它只能从父组件流向子组件。React具有浓重的函数式编程的思想。
+
+提到函数式编程就要提一个概念：纯函数。它有几个特点：
+
+- 给定相同的输入，总是返回相同的输出。
+- 过程没有副作用。
+- 不依赖外部状态。
+
+`this.props`就是汲取了纯函数的思想。props的不可以变性就保证的相同的输入，页面显示的内容是一样的，并且不会产生副作用
+
+
+
+
+
+### 在React中组件的props改变时更新组件的有哪些方法？
+
+**（1）componentWillReceiveProps（已废弃）**
+
+在react的componentWillReceiveProps(nextProps)生命周期中，可以在子组件的render函数执行前，通过this.props获取旧的属性，通过nextProps获取新的props，对比两次props是否相同，从而更新子组件自己的state。
+
+**（2）getDerivedStateFromProps（16.3引入）**
+
+两者的参数是不相同的，而`getDerivedStateFromProps`是一个**静态函数**，也就是这个函数不能通过this访问到class的属性，也并不推荐直接访问属性。而是应该通过参数提供的nextProps以及prevState来进行判断，根据新传入的props来映射到state。
+
+这个函数会返回一个对象用来更新当前的 `state` 对象
+
+需要注意的是，**如果props传入的内容不需要影响到你的state，那么就需要返回一个null**，这个返回值是必须的，所以尽量将其写到函数的末尾：
+
+```js
+static getDerivedStateFromProps(nextProps, prevState) {
+    const {type} = nextProps;
+    // 当传入的type发生变化的时候，更新state
+    if (type !== prevState.type) {
+        return {
+            type,
+        };
+    }
+    // 否则，对于state不进行任何操作
+    return null;
+}
+```
+
+
+
+###  React中怎么检验props？验证props的目的是什么？
+
+**React**为我们提供了**PropTypes**以供验证使用。当我们向**Props**传入的数据无效（向Props传入的数据类型和验证的数据类型不符）就会在控制台发出警告信息。它可以避免随着应用越来越复杂从而出现的问题。并且，它还可以让程序变得更易读。
+
+```js
+import PropTypes from 'prop-types';
+class Greeting extends React.Component {
+  render() {
+    return (
+      <h1>Hello, {this.props.name}</h1>
+    );
+  }
+}
+//校验
+Greeting.propTypes = {
+  name: PropTypes.string
+};
+```
+
+
+
+
+
+### React生命周期
+
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1570030fdd4a49f2ad8cfd01a24f80d7~tplv-k3u1fbpfcp-zoom-in-crop-mark:1304:0:0:0.awebp)
+
+#### 1）组件挂载阶段
+
+挂载阶段组件被创建，然后组件实例插入到 DOM 中，完成组件的第一次渲染，该过程只会发生一次，在此阶段会依次调用以下这些方法：
+
+- constructor
+- getDerivedStateFromProps
+- render
+- componentDidMount
+
+
+
+

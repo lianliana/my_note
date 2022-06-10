@@ -782,6 +782,9 @@ Array.prototype.reduce2 = function (callback, initalValue){
 
 ```js
 Function.prototype.myCall = function(context = window){ //myCall函数的参数，没有传参默认是指向window
+  if (typeof this !== "function") {
+    console.error("type error");
+  }
   context.fn = this //为对象添加方法（this指向调用myCall的函数）
   let args = [...arguments].slice(1) // 剩余的参数
   let res = context.fn(...args)  // 调用该方法，该方法this指向context
@@ -796,6 +799,9 @@ Function.prototype.myCall = function(context = window){ //myCall函数的参数�
 
 ```js
 Function.prototype.myApply = function(context = window){ //myCall函数的参数，没有传参默认是指向window
+  if (typeof this !== "function") {
+    console.error("type error");
+  }
   context.fn = this //为对象添加方法（this指向调用myCall的函数）
   let res
   if(arguments[1]){ //判断是否有第二个参数
@@ -814,6 +820,9 @@ Function.prototype.myApply = function(context = window){ //myCall函数的参数
 
 ```js	
 Function.prototype.myBind = function(context = window){
+  if (typeof this !== "function") {
+    console.error("type error");
+  }
   let fn = this // 调用bind的函数
   let args = [...arguments].slice(1) // myBind的参数
   let bind = function(){
