@@ -1112,6 +1112,8 @@ const resolvePromise = (promise2, x, resolve, reject) => {
 
 
 
+`catch`方法还有一个作用，就是在执行`resolve`回调函数时，如果出现错误，抛出异常，不会停止运行，而是进入`catch`方法中
+
 ###### Promise.resolve
 
 ```js
