@@ -358,28 +358,75 @@ var validateStackSequences = function(pushed, popped) {
 ##### [剑指 Offer 32 - II. 从上到下打印二叉树 II](https://leetcode-cn.com/problems/cong-shang-dao-xia-da-yin-er-cha-shu-ii-lcof/)
 
 ```js
+let res = []
 var levelOrder = function(root) {
-    let queue=[]
-    let ans=[]
+    res = []
+    let queue = []
+    if(!root) return []
     queue.push(root)
-    while(queue.length!=0){
-        let ceng=[]
-        while(queue.length!=0){
-            ceng.push(queue.shift())
-        }
-        let temp=[]
-        for(let i=0;i<ceng.length;i++){
-            if(ceng[i]!=null){
-                temp.push(ceng[i].val)
-                queue.push(ceng[i].left)
-                queue.push(ceng[i].right)
-            }
-        }
-        if(temp.length!=0)
-        ans.push(temp)
-    }
-    return ans
+    myPrint(queue)
+    return res
 };
+
+function myPrint(queue){
+    let len = 0
+    while(queue.length>0){
+        let cen = []
+        len = queue.length
+        for(let i=0;i<len;i++){
+            let node = queue.shift()
+            cen.push(node.val)
+            if(node.left) queue.push(node.left)
+            if(node.right) queue.push(node.right)
+        }
+        res.push(cen)
+    }
+}
+```
+
+
+
+[剑指 Offer 32 - III. 从上到下打印二叉树 Z字型打印](https://leetcode.cn/problems/cong-shang-dao-xia-da-yin-er-cha-shu-iii-lcof/)
+
+```js
+let res = []
+var levelOrder = function(root) {
+    res = []
+    if(!root) return []
+    myPrint(root)
+    return res
+};
+
+function myPrint(root){
+    //双栈法
+    let stack1 = []
+    let stack2 = []
+    let times = 1
+    stack1.push(root)
+    while(stack1.length>0 || stack2.length>0){
+        let cen = []
+        if(times == 1){
+            while(stack1.length>0){
+                let node = stack1.pop()
+                //先压左子树 再压右子树
+                if(node.left) stack2.push(node.left)
+                if(node.right) stack2.push(node.right)
+                cen.push(node.val)
+            }
+            res.push(cen)
+        }else{
+            while(stack2.length>0){
+                let node = stack2.pop()
+                //先压右子树 再压左子树
+                if(node.right) stack1.push(node.right)
+                if(node.left) stack1.push(node.left)
+                cen.push(node.val)
+            }
+            res.push(cen)
+        }
+        times = times==1 ? 2 : 1
+    }
+}
 ```
 
 
@@ -396,7 +443,7 @@ function recur(postorder,i,j){
     //找到比root小的
     while(postorder[pos]<postorder[j]){
         pos++
-    }
+    }	
     //看右边是不是都比根节点大
     let pps=pos
     while(postorder[pos]>postorder[j]){
@@ -411,23 +458,32 @@ function recur(postorder,i,j){
 
 ```js
 //难度更高请看 https://leetcode-cn.com/problems/path-sum-iii/
+let sum = 0
+let ans = []
 var pathSum = function(root, target) {
-    let map=new Map()
-    let ans=[]
-    dfs(root,target,[],0)
-    function dfs(root,target,arr,sum){
-        if(root==null) return 0
-        sum+=root.val
-        arr.push(root.val)
-        if(sum==target&&root.left==null&&root.right==null){
-            ans.push(JSON.parse(JSON.stringify(arr)))
-        }
-        let arr1=JSON.parse(JSON.stringify(arr))
-        dfs(root.left,target,arr,sum)
-        dfs(root.right,target,arr1,sum)
-    }
+    sum = 0
+    ans =[]
+    if(!root) return []
+    dfs(root,target,[])
     return ans
 };
+function dfs(root,target,trace){
+    if(!root) return 
+    sum += root.val
+    trace.push(root.val)
+    if(sum == target&&root.left == null && root.right == null){
+        ans.push(JSON.parse(JSON.stringify(trace)))
+        sum -= root.val
+        trace.pop()
+        return  
+    }else{
+        dfs(root.left,target,trace)
+        dfs(root.right,target,trace)
+    }
+    sum -= root.val
+    trace.pop()
+    return 
+}
 ```
 
 
