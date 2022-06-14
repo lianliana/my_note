@@ -167,15 +167,17 @@ React V15 在渲染时，会递归比对 VirtualDOM 树，找出需要变动的�
 
 **受控组件缺陷：** 表单元素的值都是由React组件进行管理，当有多个输入框，或者多个这种组件时，如果想同时获取到全部的值就必须每个都要编写事件处理函数，这会让代码看着很臃肿，所以为了解决这种情况，出现了非受控组件。
 
-
-
-
-
 **非受控组件** 如果一个表单组件没有value props（单选和复选按钮对应的是checked props）时，就可以称为非受控组件。在非受控组件中，可以使用一个ref来从DOM获得表单值。而不是为每个状态更新编写一个事件处理程序。
 
 
 
 
+
+
+
+### React setState调用原理
+
+![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1e15b888f3bd4a1db8b72259331a4747~tplv-k3u1fbpfcp-zoom-in-crop-mark:1304:0:0:0.awebp)
 
 
 
@@ -378,6 +380,8 @@ Greeting.propTypes = {
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1570030fdd4a49f2ad8cfd01a24f80d7~tplv-k3u1fbpfcp-zoom-in-crop-mark:1304:0:0:0.awebp)
 
+
+
 #### 1）组件挂载阶段
 
 挂载阶段组件被创建，然后组件实例插入到 DOM 中，完成组件的第一次渲染，该过程只会发生一次，在此阶段会依次调用以下这些方法：
@@ -389,11 +393,98 @@ Greeting.propTypes = {
 
 
 
+#### 2）组件更新阶段
+
+- getDerivedStateFromProps
+- shouldComponentUpdate
+- render
+- getSnapshotBeforeUpdate
+- componentDidUpdate
+
+
+
+##### （1）shouldComponentUpdate
+
+```js
+shouldComponentUpdate(nextProps, nextState)
+```
+
+##### （2）getSnapshotBeforeUpdate
+
+```javascript
+getSnapshotBeforeUpdate(prevProps, prevState)
+```
+
+这个方法在 `render` 之后，`componentDidUpdate` 之前调用，有两个参数 `prevProps` 和 `prevState`，表示更新之前的 `props` 和 `state`，这个函数必须要和 `componentDidUpdate` 一起使用，并且要有一个返回值，默认是 `null`，这个返回值作为第三个参数传给 `componentDidUpdate`。
+
+##### （3）componentDidUpdate
+
+componentDidUpdate() 会在更新后会被立即调用，首次渲染不会执行此方法。 该阶段通常进行以下操作：
+
+- 当组件更新后，对 DOM 进行操作；
+- 如果你对更新前后的 props 进行了比较，也可以选择在此处进行网络请求；（例如，当 props 未发生变化时，则不会执行网络请求）。
+
+```javascript
+componentDidUpdate(prevProps, prevState, snapshot){}
+```
 
 
 
 
 
+
+
+### React 废弃了哪些生命周期？为什么？
+
+被废弃的三个函数都是在render之前，因为fber的出现，很可能因为高优先级任务的出现而打断现有任务导致它们会被执行多次。另外的一个原因则是，React想约束使用者，好的框架能够让人不得已写出容易维护和扩展的代码，这一点又是从何谈起，可以从新增加以及即将废弃的生命周期分析入手
+
+**1) componentWillMount**
+
+首先这个函数的功能完全可以使用componentDidMount和 constructor来代替，异步获取的数据的情况上面已经说明了，而如果抛去异步获取数据，其余的即是初始化而已，这些功能都可以在constructor中执行，除此之外，如果在 willMount 中订阅事件，但在服务端这并不会执行 willUnMount事件，也就是说服务端会导致内存泄漏所以componentWilIMount完全可以不使用，但使用者有时候难免因为各 种各样的情况在 componentWilMount中做一些操作，那么React为了约束开发者，干脆就抛掉了这个API
+
+**2) componentWillReceiveProps**
+
+在老版本的 React 中，如果组件自身的某个 state 跟其 props 密切相关的话，一直都没有一种很优雅的处理方式去更新 state，而是需要在 componentWilReceiveProps 中判断前后两个 props 是否相同，如果不同再将新的 props更新到相应的 state 上去。这样做一来会破坏 state 数据的单一数据源，导致组件状态变得不可预测，另一方面也会增加组件的重绘次数。类似的业务需求也有很多，如一个可以横向滑动的列表，当前高亮的 Tab 显然隶属于列表自身的时，根据传入的某个值，直接定位到某个 Tab。为了解决这些问题，React引入了第一个新的生命周期：getDerivedStateFromProps。它有以下的优点∶
+
+- getDSFP是静态方法，在这里不能使用this，也就是一个纯函数，开发者不能写出副作用的代码
+- 开发者只能通过prevState而不是prevProps来做对比，保证了state和props之间的简单关系以及不需要处理第一次渲染时prevProps为空的情况
+- 基于第一点，将状态变化（setState）和昂贵操作（tabChange）区分开，更加便于 render 和 commit 阶段操作或者说优化。
+
+**3) componentWillUpdate**
+
+与 componentWillReceiveProps 类似，许多开发者也会在 componentWillUpdate 中根据 props 的变化去触发一些回调 。 但不论是 componentWilReceiveProps 还 是 componentWilUpdate，都有可能在一次更新中被调用多次，也就是说写在这里的回调函数也有可能会被调用多次，这显然是不可取的。与 componentDidMount 类 似， componentDidUpdate 也不存在这样的问题，一次更新中 componentDidUpdate 只会被调用一次，所以将原先写在 componentWillUpdate 中 的 回 调 迁 移 至 componentDidUpdate 就可以解决这个问题。
+
+另外一种情况则是需要获取DOM元素状态，但是由于在fber中，render可打断，可能在wilMount中获取到的元素状态很可能与实际需要的不同，这个通常可以使用第二个新增的生命函数的解决 getSnapshotBeforeUpdate(prevProps, prevState)
+
+
+
+
+
+### React-Router的实现原理是什么？
+
+客户端路由实现的思想：
+
+- 基于 hash 的路由：通过监听**hashchange**事件，感知 hash 的变化
+  - 改变 hash 可以直接通过 location.hash=xxx
+- 基于 H5 history 路由：
+  - 改变 url 可以通过 history.pushState 和 resplaceState 等，会将URL压入堆栈，同时能够应用 `history.go()` 等 API
+  - 监听 url 的变化可以通过自定义事件触发实现
+
+**react-router 实现的思想：**
+
+- 基于 `history` 库来实现上述不同的客户端路由实现思想，并且能够保存历史记录等，磨平浏览器差异，上层无感知
+- 通过维护的列表，在每次 URL 发生变化的回收，通过配置的 路由路径，匹配到对应的 Component，并且 render
+
+
+
+
+
+### React-Router的路由有几种模式？
+
+React-Router 支持使用 hash（对应 HashRouter）和 browser（对应 BrowserRouter） 两种路由规则， react-router-dom 提供了 BrowserRouter 和 HashRouter 两个组件来实现应用的 UI 和 URL 同步：
+
+- BrowserRouter 创建的 URL 格式：[xxx.com/path](https://link.juejin.cn?target=http%3A%2F%2Fxxx.com%2Fpath)
+- HashRouter 创建的 URL 格式：[xxx.com/#/path](https://link.juejin.cn?target=http%3A%2F%2Fxxx.com%2F%23%2Fpath)
 
 
 
