@@ -924,3 +924,39 @@ export default App;
 - 检测意外的副作用
 - 检测过时的 context API
 
+
+
+
+
+### 在React中遍历的方法有哪些？
+
+（1）遍历数组：map && forEach
+
+（2）遍历对象：map && for in
+
+
+
+### 在React中页面重新加载时怎样保留数据？
+
+这个问题就设计到了**数据持久化，** 主要的实现方式有以下几种：
+
+- **Redux：** 将页面的数据存储在redux中，在重新加载页面时，获取Redux中的数据；
+- **data.js：** 使用webpack构建的项目，可以建一个文件，data.js，将数据保存data.js中，跳转页面后获取；
+- **sessionStorge：** 在进入选择地址页面之前，componentWillUnMount的时候，将数据存储到sessionStorage中，每次进入页面判断sessionStorage中有没有存储的那个值，有，则读取渲染数据；没有，则说明数据是初始化的状态。返回或进入除了选择地址以外的页面，清掉存储的sessionStorage，保证下次进入是初始化的数据
+- **history API：** History API 的 `pushState` 函数可以给历史记录关联一个任意的可序列化 `state`，所以可以在路由 `push` 的时候将当前页面的一些信息存到 `state` 中，下次返回到这个页面的时候就能从 `state` 里面取出离开前的数据重新渲染。react-router 直接可以支持。这个方法适合一些需要临时存储的场景。
+
+
+
+### React必须使用JSX吗？
+
+React 并不强制要求使用 JSX。当不想在构建环境中配置有关 JSX 编译时，不在 React 中使用 JSX 会更加方便。
+
+每个 JSX 元素只是调用 `React.createElement(component, props, ...children)` 的语法糖。因此，使用 JSX 可以完成的任何事情都可以通过纯 JavaScript 完成。
+
+
+
+### React.Children.map和js的map有什么区别？
+
+JavaScript中的map不会对为null或者undefined的数据进行处理，而React.Children.map中的map可以处理React.Children为null或者undefined的情况。
+
+
