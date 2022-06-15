@@ -1434,6 +1434,23 @@ function quickSort(arr,begin,end){
     quickSort(arr,i+1,end)
     return arr
 }
+
+function quickSort(arr,begin,end){
+    if(begin>end) return arr
+    let item = arr[begin]
+    let left = begin 
+    let right = end
+    while(left!=right){
+        while(arr[right]>=item&&left<right) right--
+        arr[left] = arr[right]
+        while(arr[left]<=item&&left<right) left++
+        arr[right] = arr[left]
+    }
+    arr[left] = item
+    quickSort(arr,begin,left-1)
+    quickSort(arr,left+1,end)
+    return arr
+}
 ```
 
 
