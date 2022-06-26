@@ -1251,6 +1251,368 @@ Promise.allSettled = function(promiseArr) {
 
 
 
+### 洗牌算法
+
+```js
+//将随机的一个数放到最后 直到全部放完
+function Shuffle(arr){
+    let len = arr.length
+    while(len>0){
+        let rand = Math.floor(Math.random()*len)
+        len--
+        [arr[rand],arr[len]] = [arr[len],arr[rand]]
+    }
+    return arr
+}
+```
+
+
+
+
+
+### 虚拟列表（固定长度）
+
+```react
+import React from 'react'
+import './App.css'
+
+export default class App extends React.Component {
+  state={
+    listData:[],
+    startIndex:0,
+    endIndex:10,
+    itemHeight:100,
+    visibleData:[],
+    scrollTop:0,
+    visibleCount: Math.ceil(window.screen.height/100),
+    startOffset:0
+  }
+  componentDidMount(){
+    const {startIndex,visibleCount} = this.state
+    let listData = this.getData()
+    let endIndex = startIndex + visibleCount
+    let visibleData = listData.slice(startIndex,endIndex)
+    this.setState({
+      listData,
+      endIndex,
+      visibleData
+    })
+  }
+
+  getData = ()=>{
+    let data = []
+    for(let i=0;i<10000;i++){
+      data.push(i)
+    }
+    return data
+  }
+
+  onScrollEvent=()=>{
+    const {itemHeight,visibleCount,listData} = this.state
+    const scrollTop = this.containerRef.current.scrollTop
+    let startIndex = Math.floor(scrollTop/itemHeight)
+    let endIndex = startIndex + visibleCount
+    let visibleData = listData.slice(startIndex,endIndex)
+    let startOffset = scrollTop - (scrollTop % itemHeight)
+    this.listRef.current.style = `transform: translate3d(0,${startOffset}px,0)`
+    this.setState({
+      startIndex,
+      endIndex,
+      startOffset,
+      visibleData
+    })
+  }
+
+  containerRef = React.createRef()
+  listRef = React.createRef()
+  render() {
+    const {visibleData,itemHeight} = this.state
+    return (
+        <div className='infinite-list-container' ref={this.containerRef} onScroll={this.onScrollEvent}>
+          <div className='infinite-list-phantom' style={{height:'1000000px'}}></div>
+          <div className='infinite-list' ref={this.listRef}>
+            {visibleData.map((item)=>
+              (
+              <div 
+              className='infinite-list-item'
+              style={{height:itemHeight+'px',lineHeight:itemHeight+'px'}}
+              key={item}
+              >
+              {item}
+              </div>
+            )
+            )}
+          </div>
+        </div>
+    )
+  }
+}
+
+
+
+//App.css
+#root{
+  height:100%;
+}
+.infinite-list-container {
+  height: 100%;
+  overflow: auto;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.infinite-list-phantom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  z-index: -1;
+}
+
+.infinite-list {
+  left: 0;
+  right: 0;
+  top: 0;
+  position: absolute;
+  text-align: center;
+}
+
+.infinite-list-item {
+  padding: 10px;
+  color: #555;
+  box-sizing: border-box;
+  border-bottom: 1px solid #999;
+}
+
+//index.css
+html{
+  height: 100%;
+}
+body{
+  height: 100%;
+  margin:0;
+}
+```
+
+
+
+### 虚拟列表 （不定长度）
+
+```react
+import './App.css';
+import React, { Component } from 'react'
+import { faker } from '@faker-js/faker';
+class App extends React.Component {
+  state ={
+    estimatedItemHeight:50,
+    positions:[],
+    listData:[],
+    startIndex: 0,
+    visibleCount:Math.ceil(window.screen.height / 50),
+    endIndex: 0,
+    visibleData:[],
+    mylock: false,
+    height:0
+  }
+
+  componentDidMount(){
+    const {startIndex,visibleCount,estimatedItemHeight} = this.state
+    const listData = this.getFakeData()
+    const endIndex = startIndex + visibleCount
+    const visibleData = listData.slice(startIndex,endIndex)
+    const positions = listData.map((d,index)=>({
+      index,
+      height:estimatedItemHeight,
+      top: index*estimatedItemHeight,
+      bottom: (index+1) * estimatedItemHeight
+    }))
+    this.setState({
+      listData,
+      endIndex,
+      visibleData,
+      positions
+    })
+  }
+
+  componentDidUpdate(_,prevState){
+    console.log(this.state,'===',prevState);
+    if(prevState.mylock == true){
+      return
+    }
+    this.updateItemsSize()
+    let height= this.state.positions[this.state.positions.length-1].bottom
+    // console.log(height);
+    this.phantomRef.current.style.height = height + 'px';
+    this.setStartOffset()
+    this.setState({
+      mylock:true,
+      height
+    })
+  }
+
+
+  updateItemsSize = ()=>{
+    let nodes = Array.from(this.contentRef.current.children)
+    console.log(this.contentRef.current.children);
+    let {positions} = this.state
+    nodes.forEach((node)=>{
+      let rect = node.getBoundingClientRect()
+      let height = rect.height
+      let index = +node.id
+      let oldHeight = positions[index].height
+      let dValue = oldHeight - height
+      if(dValue){
+        positions[index].bottom = positions[index].bottom - dValue
+        positions[index].height = height
+        for(let i=index+1;i<positions.length;i++){
+          positions[i].top = positions[i-1].bottom
+          positions[i].bottom = positions[i].bottom - dValue
+        }
+      }
+    })
+    this.setState({
+      positions
+    })
+  }
+
+
+  contentRef = React.createRef()
+  phantomRef = React.createRef()
+  itemsRef = React.createRef()
+  listRef = React.createRef()
+
+  getFakeData = () => {
+    let d = []
+    for(let id =0;id<10000;id++){
+      d.push({
+        id,
+        value:faker.lorem.sentences()
+      })
+    }
+    return d
+  }
+
+  getStartIndex = (scrollTop)=>{
+    return this.binarySearch(this.state.positions,scrollTop)
+  } 
+
+  binarySearch = (positions,scrollTop)=>{
+    let start = 0
+    let end = positions.length-1
+    let tempIndex = null
+    while(start<end){
+      let mid = start + Math.floor((end-start)/2)
+      if(positions[mid].bottom ==scrollTop){
+        return mid+1
+      }else if(positions[mid].bottom<scrollTop){
+        start = mid+1
+      }else if(positions[mid].bottom>scrollTop){
+        if(tempIndex == null || tempIndex > mid){
+          tempIndex = mid 
+        }
+        end = mid -1
+      }
+    }
+    return tempIndex
+  }
+
+  setStartOffset=()=>{
+    let startOffset =this.state.startIndex >= 1 ? this.state.positions[this.state.startIndex - 1].bottom : 0;
+    this.contentRef.current.style.transform = `translate3d(0,${startOffset}px,0)`;
+  }
+
+  onScrollEvent= ()=>{
+    const {visibleCount,listData} = this.state 
+    const scrollTop = this.listRef.current.scrollTop
+    const start = this.getStartIndex(scrollTop)
+    const end = start + visibleCount
+    const visibleData = listData.slice(start,end)
+    this.setStartOffset()
+    this.setState({
+      startIndex:start,
+      endIndex:end,
+      visibleData,
+      mylock:false
+    }) 
+  }
+  
+  render() {
+    const {visibleData,height} = this.state
+    return (
+      <div className="infinite-list-container" onScroll={this.onScrollEvent} ref={this.listRef} style={{height: '100%'}}>
+          <div className="infinite-list-phantom" ref={this.phantomRef}></div>
+          <div className="infinite-list" ref={this.contentRef}>
+              {visibleData.map((item,index)=>(
+                  <div 
+                  ref={this.itemsRef[index]}
+                  className="infinite-list-item"
+                  key={item.id}
+                  id = {item.id}>
+                  {item.id}
+                  {item.value}
+                  </div>
+                ))}
+          </div>
+      </div>
+    )
+  }
+}
+
+export default App;
+
+//app.css
+
+#root{
+  height:100%;
+}
+.infinite-list-container {
+  overflow: auto;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+.infinite-list-phantom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  z-index: -1;
+}
+.infinite-list {
+  left: 0;
+  right: 0;
+  top: 0;
+  position: absolute;
+  text-align: center;
+}
+.infinite-list-item {
+  padding: 10px;
+  color: #555;
+  box-sizing: border-box;
+  border-bottom: 1px solid #999;
+}
+
+
+//index.css
+html{
+  height: 100%;
+}
+body{
+  height: 100%;
+  margin:0;
+}
+#app{
+  height:100%;
+}
+```
+
+
+
+
+
+
+
+
+
 
 
 

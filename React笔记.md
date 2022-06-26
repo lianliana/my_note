@@ -711,7 +711,7 @@ React.useEffect(() => {
 
 [![image-20210914172936843](https://camo.githubusercontent.com/cf51ba421a1f83d55be800fde74c50176acc8ad142f0324648e0cd39d2aed0e8/68747470733a2f2f6c6a63696d672e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f696d672f696d6167652d32303231303931343137323933363834332e706e67)](https://camo.githubusercontent.com/cf51ba421a1f83d55be800fde74c50176acc8ad142f0324648e0cd39d2aed0e8/68747470733a2f2f6c6a63696d672e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f696d672f696d6167652d32303231303931343137323933363834332e706e67)
 
-### 3. useLayoutEffect
+##### 3. useLayoutEffect
 
 和 `useEffect` 很类似
 
@@ -745,7 +745,7 @@ const getDoubleNum = useMemo(() => {
 }, [num])
 ```
 
-###### 5. useCallback
+##### 5. useCallback
 
 作用：跟随状态更新执行
 
