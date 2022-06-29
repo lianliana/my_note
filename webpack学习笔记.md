@@ -11,7 +11,7 @@
 - 公共代码的提取
 - 代码变更后能自动构建刷新浏览器
 
-#### 资源模块 asset module 用来加载js以外的资源
+#### wepack5  资源模块 asset module 用来加载js以外的资源
 
 - aseet/resource  发送一个单独的文件并导出url
 - asset/inline 导出一个资源的data URL
@@ -76,6 +76,8 @@ plugins:[
     ]
 ```
 
+
+
 ###### MiniCssExtractPlugin  
 
 - 通过外部引入打包好的css  命令：npm install mini-css-extract-plugin -d
@@ -96,6 +98,8 @@ module:{
     }
 ```
 
+
+
 ###### CssMinimizerPlugin  
 
 - 压缩css文件 提高生产环境下执行效率  命令：npm install css-minimizer-webpack-plugin -d
@@ -109,6 +113,8 @@ optimization:{
     }
 ```
 
+
+
 ###### TerserPlugin
 
 - 压缩js文件 提高生产环境下执行效率 命令：npm install terser-webpack-plugin -d
@@ -119,6 +125,45 @@ optimization:{
                 new CssMinimizerPlugin(),
                 new TerserPlugin()
             ],
+}
+```
+
+
+
+###### purgecss-webpack-plugin
+
+```js
+const config = {
+  plugins:[ // 配置插件
+    // ...
+    new PurgecssPlugin({
+      paths: glob.sync(`${PATHS.src}/**/*`, {nodir: true})
+    }),
+  ]
+}
+
+```
+
+
+
+
+
+###### speed-measure-webpack-plugin
+
+```js
+...
+// 费时分析
+const SpeedMeasurePlugin = require("speed-measure-webpack-plugin");
+const smp = new SpeedMeasurePlugin();
+...
+
+const config = {...}
+
+module.exports = (env, argv) => {
+  // 这里可以通过不同的模式修改 config 配置
+
+
+  return smp.wrap(config);
 }
 ```
 
@@ -139,6 +184,45 @@ module.exports = {
 }
 
 ```
+
+
+
+
+
+###### CommonsChunkPlugin
+
+```js
+module.exports = {
+    plugins: [
+        // ...others
+        new webpack.optimize.CommonsChunkPlugin({
+          name: 'vendor',
+        }),
+    ]
+}
+```
+
+
+
+###### clean-webpack-plugin
+
+```js
+// 引入插件
+const { CleanWebpackPlugin } = require('clean-webpack-plugin')
+module.exports = {
+  // ...
+  plugins:[ // 配置插件
+    new HtmlWebpackPlugin({
+      template: './src/index.html'
+    }),
+    new CleanWebpackPlugin() // 引入插件
+  ]
+}
+```
+
+
+
+
 
 
 
@@ -178,13 +262,19 @@ module:{
 }
 ```
 
+
+
 ###### css-loader
 
 -  webpack自动打包转换css文件
 
+
+
 ###### style-loader 
 
 - webpack打包自动生成style标签引入
+
+
 
 ###### less-loader 
 
@@ -200,6 +290,102 @@ module:{
         ]
     }
 ```
+
+
+
+###### postcss-loader
+
+```js
+const config = {
+  module: { 
+    rules: [
+      {
+        test: /\.css$/, //匹配所有的 css 文件
+        use: ['style-loader','css-loader', 'postcss-loader']
+      }
+    ]
+  },
+}
+
+// postcss.config.js
+module.exports = {
+  plugins: [require('postcss-preset-env')]
+}
+
+//创建 postcss-preset-env 配置文件 
+//.browserslistrc
+# 换行相当于 and
+last 2 versions # 回退两个浏览器版本
+> 0.5% # 全球超过0.5%人使用的浏览器，可以通过 caniuse.com 查看不同浏览器不同版本占有率
+IE 10 # 兼容IE 10
+
+```
+
+
+
+常用的处理图片文件的 Loader 包含：
+
+| Loader      | 说明                                                         |
+| ----------- | ------------------------------------------------------------ |
+| file-loader | 解决图片引入问题，并将图片 copy 到指定目录，默认为 dist      |
+| url-loader  | 解依赖 file-loader，当图片小于 limit 值的时候，会将图片转为 base64 编码，大于 limit 值的时候依然是使用 file-loader 进行拷贝 |
+| img-loader  | 压缩图片                                                     |
+
+
+
+```JS
+const config = {
+  //...
+  module: { 
+    rules: [
+      {
+         // ...
+      }, 
+      {
+        test: /\.(jpe?g|png|gif)$/i, // 匹配图片文件
+        use:[
+          'file-loader' // 使用 file-loader
+        ]
+      }
+    ]
+  },
+  // ...
+}
+
+```
+
+
+
+url-loader
+
+```js
+const config = {
+  //...
+  module: { 
+    rules: [
+      {
+         // ...
+      }, 
+      {
+        test: /\.(jpe?g|png|gif)$/i,
+        use:[
+          {
+            loader: 'url-loader',
+            options: {
+              name: '[name][hash:8].[ext]',
+              // 文件小于 50k 会转换为 base64，大于则拷贝文件
+              limit: 50 * 1024
+            }
+          }
+        ]
+      },
+    ]
+  },
+  // ...
+}
+```
+
+
 
 
 
@@ -259,7 +445,41 @@ module:{
 
 ```
 
-#### Resolve
+
+
+###### cache-loader
+
+```js
+const config = {
+ module: { 
+    // ...
+    rules: [
+      {
+        test: /\.(s[ac]|c)ss$/i, //匹配所有的 sass/scss/css 文件
+        use: [
+          // 'style-loader',
+          MiniCssExtractPlugin.loader,
+          'cache-loader', // 获取前面 loader 转换的结果
+          'css-loader',
+          'postcss-loader',
+          'sass-loader', 
+        ]
+      }, 
+      // ...
+    ]
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+#### Resolve配置
 
 1. alias:创建Import或require模块的别名，使得模块导入变得简单
 2. extensions:当不带拓展名的模块导入时 会按照extensions的数组顺序依次进行查询
@@ -292,6 +512,8 @@ module.exports={
 }
 ```
 
+
+
 2. 使用Entry dependencied 或者 SplitChunksPlugin 去重和分离代码
 
 ```js
@@ -311,6 +533,8 @@ module.exports={
 }
 ```
 
+
+
 3. 通过模块的内联函数调用来分离代码  动态导入
 
 ```js
@@ -324,6 +548,10 @@ button.addEventListener('click',()=>{
 })
 document.body.appendChild(button)
 ```
+
+
+
+
 
 ##### 预获取和预加载
 
@@ -376,6 +604,8 @@ optimization:{
 
 
 ## Webpack 高级篇
+
+[source map掘金资料](https://juejin.cn/post/7023242274876162084#heading-17)
 
 #### source map
 
@@ -710,6 +940,71 @@ module.exports = {
     ]
 }
 ```
+
+
+
+#### prefetch 与 preload
+
+上面我们使用异步加载的方式引入图片的描述，但是如果需要异步加载的文件比较大时，在点击的时候去加载也会影响到我们的体验，这个时候我们就可以考虑使用 prefetch 来进行预拉取
+
+##### prefetch
+
+> - **prefetch** (预获取)：浏览器空闲的时候进行资源的拉取
+
+改造一下上面的代码
+
+```js
+// 按需加载
+img.addEventListener('click', () => {
+  import( /* webpackPrefetch: true */ './desc').then(({ default: element }) => {
+    console.log(element)
+    document.body.appendChild(element)
+  })
+})
+```
+
+##### preload
+
+> - **preload** (预加载)：提前加载后面会用到的关键资源
+> - ⚠️ 因为会提前拉取资源，如果不是特殊需要，谨慎使用
+
+官网示例：
+
+```js
+import(/* webpackPreload: true */ 'ChartingLibrary');
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 面试题
+
+### Loader和Plugin的区别
+
+`Loader` 本质就是一个函数，在该函数中对接收到的内容进行转换，返回转换后的结果。 因为 Webpack 只认识 JavaScript，所以 Loader 就成了翻译官，对其他类型的资源进行转译的预处理工作。
+
+`Plugin` 就是插件，基于事件流框架 `Tapable`，插件可以扩展 Webpack 的功能，在 Webpack 运行的生命周期中会广播出许多事件，Plugin 可以监听这些事件，在合适的时机通过 Webpack 提供的 API 改变输出结果。
+
+`Loader` 在 module.rules 中配置，作为模块的解析规则，类型为数组。每一项都是一个 Object，内部包含了 test(类型文件)、loader、options (参数)等属性。
+
+`Plugin` 在 plugins 中单独配置，类型为数组，每一项是一个 Plugin 的实例，参数都通过构造函数传入。
+
+
+
+
+
+
+
+
 
 
 
