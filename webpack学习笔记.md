@@ -124,7 +124,7 @@ optimization:{
 
 
 
-###### webpack-bundle-analyzer
+###### webpack-bundle-analyzer 巨好用
 
 可视化打包产物依赖图
 
@@ -710,6 +710,17 @@ module.exports = {
     ]
 }
 ```
+
+
+
+
+
+### runtime运行时
+
+https://www.jianshu.com/p/714ce38b9fdc
+
+设置runtimeChunk是将包含`chunks 映射关系`的 list单独从 app.js里提取出来，因为每一个 chunk 的 id 基本都是基于内容 hash 出来的，所以每次改动都会影响它，如果不将它提取出来的话，等于app.js每次都会改变。缓存就失效了。设置runtimeChunk之后，webpack就会生成一个个runtime~xxx.js的文件。
+ 然后每次更改所谓的运行时代码文件时，打包构建时app.js的hash值是不会改变的。如果每次项目更新都会更改app.js的hash值，那么用户端浏览器每次都需要重新加载变化的app.js，如果项目大切优化分包没做好的话会导致第一次加载很耗时，导致用户体验变差。现在设置了runtimeChunk，就解决了这样的问题。所以`这样做的目的是避免文件的频繁变更导致浏览器缓存失效，所以其是更好的利用缓存。提升用户体验。`
 
 
 
