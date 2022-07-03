@@ -251,6 +251,40 @@ function unique(arr){
         return arr.indexOf(item)==index
     })
 }
+//双层for + splice
+function unique(arr){
+    for(let i=0;i<arr.length;i++){
+        for(let j=i+1;j<arr.length;j++){
+            if(arr[j]==arr[i]){
+                arr.splice(j,1)
+                j--
+            }
+        }
+    }
+    return arr
+}
+//新创一个数组
+function unique(arr){
+    let res = []
+    for(let i=0;i<arr.length;i++){
+        if(!res.includes(arr[i])){
+            res.push(arr[i])
+        }
+    }
+    return res
+}
+//利用对象的key只能唯一
+function unique(arr){
+    let obj={}
+    let res = []
+    for(let i=0;i<arr.length;i++){
+        if(!obj[arr[i]]){
+            res.push(arr[i])
+            obj[arr[i]] = 1
+        }
+    }
+    return res
+}
 console.log(unique([1,2,3,4,4,4,4]));
 ```
 
