@@ -1647,7 +1647,7 @@ body{
 
 
 
-
+![img](https://p1-jj.byteimg.com/tos-cn-i-t2oaga2asx/gold-user-assets/2020/1/6/16f7b3db4a239442~tplv-t2oaga2asx-zoom-in-crop-mark:3024:0:0:0.awebp)
 
 
 
@@ -1897,7 +1897,7 @@ function radixSort(nums){
     }
     for(let i=maxDigits-2;i>=0;i--){
         for(let j=0;j<=9;j++){
-            let temp = arr[i]
+            let temp = arr[j]
             let len = temp.length
             while(len--){
                 let str = temp.shift()
@@ -1943,7 +1943,7 @@ function heapSort(arr){
 
 function buildHeap(arr){
     let len = arr.length
-    let start = Math.floor(len/2) + 1 //从第一个非叶子节点开始
+    let start = Math.floor(len/2) - 1 //从第一个非叶子节点开始
     for(let i=start;i>=0;i--){
         adjustHeap(arr,i,len)
     }
@@ -1972,8 +1972,6 @@ function adjustHeap(arr,i,len){
 ```
 
 
-
-##### 
 
 ###### 堆排实战
 
