@@ -204,7 +204,7 @@ function Dog(name,age){
     this.age=age
 }
 // - Dog.prototype=new Animal()
-// - Dog.prototype.constructor =Dog
+// - Dog.prototype.constructor = Dog
 	Dog.prototype =  Object.create(Animal.prototype)
 	Dog.prototype.constructor = Dog
 
@@ -551,7 +551,7 @@ function throttle(func, wait){
         context = this
         args = arguments
         let now = +new Date()
-        if(now - prev < wait){
+        if(now - prev > wait){
             func.call(context,args)
             prev=now
         }
@@ -608,7 +608,10 @@ function curry(fn) {
     }
     return judge
 }
-
+//es6 简单写法
+function curry(fn,...args){
+    return fn.length == args.length ? fn(...args) : curry.bind(null,fn,...args)
+}
 ```
 
 
@@ -820,7 +823,7 @@ Function.prototype.myCall = function(context = window){ //myCall函数的参数�
     console.error("type error");
   }
   context.fn = this //为对象添加方法（this指向调用myCall的函数）
-  let args = [...arguments].slice(1) // 剩余的参数
+  let args = [...arguments].slice(1) // 剩余的参数 
   let res = context.fn(...args)  // 调用该方法，该方法this指向context
   delete context.fn //删除添加的方法
   return res
@@ -859,7 +862,7 @@ Function.prototype.myBind = function(context = window){
   }
   let fn = this // 调用bind的函数
   let args = [...arguments].slice(1) // myBind的参数
-  let bind = function(){
+  let bind = function(){	
     let args1 = [...arguments].slice() // bind的参数
     return fn.apply(context,args.concat(args1))
   }
