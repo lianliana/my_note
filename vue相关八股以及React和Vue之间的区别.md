@@ -167,7 +167,7 @@ Vue采用了数据驱动视图的思想，但是在一些情况下，仍然需�
 
 
 
-### **Vue 中给 data 中的对象属性添加一个新的属性时会发生什么？如何解决？**
+### Vue 中给 data 中的对象属性添加一个新的属性时会发生什么？如何解决？
 
 ```javascript
 <template> 
@@ -420,7 +420,7 @@ const router = new VueRouter({
 
 
 
-### `$route 和$router` 的区别
+### $route 和$router的区别
 
 - $route 是“路由信息对象”，包括 path，params，hash，query，fullPath，matched，name 等路由信息参数
 - $router 是“路由实例”对象包括了路由的跳转方法，钩子函数等。
@@ -518,6 +518,59 @@ beforeRouteEnter(to, from, next) {
 
 
 
+### vue-router 中的导航钩子函数
+
+```
+（1）全局的钩子函数 beforeEach 和 afterEach
+
+beforeEach 有三个参数，to 代表要进入的路由对象，from 代表离开的路由对象。next 是一个必须要执行的函数，如果不传参数，那就执行下一个钩子函数，如果传入 false，则终止跳转，如果传入一个路径，则导航到对应的路由，如果传入 error ，则导航终止，error 传入错误的监听函数。
+
+（2）单个路由独享的钩子函数 beforeEnter，它是在路由配置上直接进行定义的。
+
+（3）组件内的导航钩子主要有这三种：beforeRouteEnter、beforeRouteUpdate、beforeRouteLeave。它们是直接在路由组
+件内部直接进行定义的。
+```
+
+
+
+### $route 和 $router 的区别？
+
+```
+$route 是“路由信息对象”，包括 path，params，hash，query，fullPath，matched，name 等路由信息参数。而 $router 是“路由实例”对象包括了路由的跳转方法，钩子函数等。
+```
+
+
+
+### vue 常用的修饰符？
+
+```
+.prevent: 提交事件不再重载页面；.stop: 阻止单击事件冒泡；.self: 当事件发生在该元素本身而不是子元素的时候会触发；
+```
+
+
+
+### vue 中 key 值的作用？
+
+```
+vue 中 key 值的作用可以分为两种情况来考虑。
+
+第一种情况是 v-if 中使用 key。由于 Vue 会尽可能高效地渲染元素，通常会复用已有元素而不是从头开始渲染。因此当我们使用 v-if 来实现元素切换的时候，如果切换前后含有相同类型的元素，那么这个元素就会被复用。如果是相同的 input 元素，那么切换前后用户的输入不会被清除掉，这样是不符合需求的。因此我们可以通过使用 key 来唯一的标识一个元素，这个情况下，使用 key 的元素不会被复用。这个时候 key 的作用是用来标识一个独立的元素。
+
+第二种情况是 v-for 中使用 key。用 v-for 更新已渲染过的元素列表时，它默认使用“就地复用”的策略。如果数据项的顺序发生了改变，Vue 不会移动 DOM 元素来匹配数据项的顺序，而是简单复用此处的每个元素。因此通过为每个列表项提供一个 key 值，来以便 Vue 跟踪元素的身份，从而高效的实现复用。这个时候 key 的作用是为了高效的更新渲染虚拟 DOM。
+```
+
+### vue 中 mixin 和 mixins 区别？
+
+```
+mixin 用于全局混入，会影响到每个组件实例。
+
+mixins 应该是我们最常使用的扩展组件的方式了。如果多个组件中有相同的业务逻辑，就可以将这些逻辑剥离出来，通过 mixins 混入代码，比如上拉下拉加载数据这种逻辑等等。另外需要注意的是 mixins 混入的钩子函数会先于组件内的钩子函数执行，并且在遇到同名选项的时候也会有选择性的进行合并
+```
+
+
+
+
+
 
 
 ### Vue-router跳转和location.href有什么区别
@@ -525,6 +578,12 @@ beforeRouteEnter(to, from, next) {
 - 使用 `location.href= /url `来跳转，简单方便，但是刷新了页面；
 - 使用 `history.pushState( /url )` ，无刷新页面，静态跳转；
 - 引进 router ，然后使用 `router.push( /url )` 来跳转，使用了 `diff` 算法，实现了按需加载，减少了 dom 的消耗。其实使用 router 跳转和使用 `history.pushState()` 没什么差别的，因为vue-router就是用了 `history.pushState()` ，尤其是在history模式下。
+
+
+
+
+
+
 
 
 
