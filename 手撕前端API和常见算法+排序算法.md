@@ -81,6 +81,69 @@ function myTypeOf(obj){
 
 
 
+##### 判断一个对象是否为空对象
+
+```js
+function checkNullObj(obj){
+    return object.keys(obj).length === 0 && Object.getOwnPropertySymbols(obj).length === 0
+}
+```
+
+
+
+##### 实现每隔一秒打印 1,2,3,4
+
+```js
+// 使用闭包实现
+for (var i = 0; i < 5; i++) {
+  (function(i) {
+    setTimeout(function() {
+      console.log(i);
+    }, i * 1000);
+  })(i);
+}
+
+// 使用 let 块级作用域
+for (let i = 0; i < 5; i++) {
+  setTimeout(function() {
+    console.log(i);
+  }, i * 1000);
+}
+```
+
+
+
+#####  js 中倒计时的纠偏实现？
+
+```js
+const interval = 1000
+let ms = 50000,  // 从服务器和活动开始时间计算出的时间差，这里测试用 50000 ms
+let count = 0
+const startTime = new Date().getTime()
+let timeCounter
+if( ms >= 0) {
+  timeCounter = setTimeout(countDownStart, interval)
+}
+ 
+function countDownStart () {
+   count++
+   const offset = new Date().getTime() - (startTime + count * interval) // A
+   let nextTime = interval - offset
+   if (nextTime < 0) { 
+       nextTime = 0 
+   }
+   ms -= interval
+   console.log(`误差：${offset} ms，下一次执行：${nextTime} ms 后，离活动开始还有：${ms} ms`)
+   if (ms < 0) {
+     clearTimeout(timeCounter)
+   } else {
+     timeCounter = setTimeout(countDownStart, nextTime)
+   }
+ }
+```
+
+
+
 
 
 ##### 继承
@@ -404,6 +467,64 @@ eventBus.emit('aaa', false, '布兰', 12)
 // 'hello, 布兰 12'
 
 ```
+
+
+
+##### 手写观察者模式
+
+```js
+var events = (function() {
+  var topics = {};
+
+  return {
+    // 注册监听函数
+    subscribe: function(topic, handler) {
+      if (!topics.hasOwnProperty(topic)) {
+        topics[topic] = [];
+      }
+      topics[topic].push(handler);
+    },
+
+    // 发布事件，触发观察者回调事件
+    publish: function(topic, info) {
+      if (topics.hasOwnProperty(topic)) {
+        topics[topic].forEach(function(handler) {
+          handler(info);
+        });
+      }
+    },
+
+    // 移除主题的一个观察者的回调事件
+    remove: function(topic, handler) {
+      if (!topics.hasOwnProperty(topic)) return;
+
+      var handlerIndex = -1;
+      topics[topic].forEach(function(item, index) {
+        if (item === handler) {
+          handlerIndex = index;
+        }
+      });
+
+      if (handlerIndex >= 0) {
+        topics[topic].splice(handlerIndex, 1);
+      }
+    },
+
+    // 移除主题的所有观察者的回调事件
+    removeAll: function(topic) {
+      if (topics.hasOwnProperty(topic)) {
+        topics[topic] = [];
+      }
+    }
+  };
+})();
+```
+
+
+
+
+
+
 
 
 
