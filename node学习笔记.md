@@ -38,6 +38,8 @@ __默认情况下__,exports和module.exports指向同一个对象，后面的操
 - moudule变量是一个对象，它的exports属性(即module.exports)是对外的接口
 - 加载某个模块，其实是加载该模块的module.exports属性，requre()方法用于加载模块
 
+
+
 #### 加载包
 
 指定路径是目录：先找Package.json 然后 index.js 最后
