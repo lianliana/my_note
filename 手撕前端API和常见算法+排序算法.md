@@ -1777,6 +1777,8 @@ body{
 
 ### 排序算法
 
+[动图展示10大排序算法](https://www.cnblogs.com/onepixel/articles/7674659.html)
+
 ##### 冒泡排序
 
 ```js
@@ -1808,6 +1810,7 @@ function selectSort(arr){
     for(let i=0;i<len;i++){
         index = i
         for(let j=i+1;j<len;j++){
+            //找最小的
             if(arr[j]<arr[index]){
                 index = j
             }
