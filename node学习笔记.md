@@ -175,3 +175,66 @@ node-heapdump、 node-memwatch
 （4）抛出 "not found"
 ```
 
+
+
+### Node事件循环
+
+```js
+   ┌───────────────────────┐
+┌─>│        timers         │
+│  └──────────┬────────────┘
+│  ┌──────────┴────────────┐
+│  │     I/O callbacks     │
+│  └──────────┬────────────┘
+│  ┌──────────┴────────────┐
+│  │     idle, prepare     │
+│  └──────────┬────────────┘      ┌───────────────┐
+│  ┌──────────┴────────────┐      │   incoming:   │
+│  │         poll          │<─────┤  connections, │
+│  └──────────┬────────────┘      │   data, etc.  │
+│  ┌──────────┴────────────┐      └───────────────┘
+│  │        check          │
+│  └──────────┬────────────┘
+│  ┌──────────┴────────────┐
+└──┤    close callbacks    │
+   └───────────────────────┘
+   
+   
+
+```
+
+[事件循环资料](https://juejin.cn/post/6844903999506923528#comment)
+
+[思否事件循环](https://segmentfault.com/a/1190000040364902)
+
+## 事件循环详解
+
+
+
+![在这里插入图片描述](https://p1-jj.byteimg.com/tos-cn-i-t2oaga2asx/gold-user-assets/2019/11/18/16e7d83cb93ba59e~tplv-t2oaga2asx-zoom-in-crop-mark:3024:0:0:0.awebp)
+
+这个图是整个 Node.js 的运行原理，从左到右，从上到下，Node.js 被分为了四层，分别是 `应用层`、`V8引擎层`、`Node API层` 和 `LIBUV层`。
+
+
+
+> - 应用层：   即 JavaScript 交互层，常见的就是 Node.js 的模块，比如 http，fs
+> - V8引擎层：  即利用 V8 引擎来解析JavaScript 语法，进而和下层 API 交互
+> - NodeAPI层：  为上层模块提供系统调用，一般是由 C 语言来实现，和操作系统进行交互 。
+> - LIBUV层： 是跨平台的底层封装，实现了 事件循环、文件操作等，是 Node.js 实现异步的核心
+
+
+
+
+
+1. **`timers` 阶段**: 这个阶段执行 `setTimeout(callback)` 和 `setInterval(callback)` 预定的 callback;
+
+2. **`I/O callbacks` 阶段**: 此阶段执行某些系统操作的回调，例如TCP错误的类型。 例如，如果TCP套接字在尝试连接时收到 ECONNREFUSED，则某些* nix系统希望等待报告错误。 这将操作将等待在==I/O回调阶段==执行;
+
+3. **`idle, prepare` 阶段**: 仅node内部使用;
+
+4. **`poll` 阶段**: 获取新的I/O事件, 例如操作读取文件等等，适当的条件下node将阻塞在这里;
+
+5. **`check` 阶段**: 执行 `setImmediate()` 设定的callbacks;
+
+6. **`close callbacks` 阶段**: 比如 `socket.on(‘close’, callback)` 的callback会在这个阶段执行;
+

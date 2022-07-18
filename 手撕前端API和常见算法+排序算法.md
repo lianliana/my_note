@@ -360,6 +360,62 @@ class Dog extends Animal {
 
 
 
+
+
+### 类数组如何转换成数组
+
+（1）通过 call 调用数组的 slice 方法来实现转换
+
+```
+Array.prototype.slice.call(arrayLike);  [].slice.call(arugments)
+```
+
+（2）通过 call 调用数组的 splice 方法来实现转换
+
+```
+Array.prototype.splice.call(arrayLike, 0);
+```
+
+（3）通过 apply 调用数组的 concat 方法来实现转换
+
+```
+Array.prototype.concat.apply([], arrayLike);
+```
+
+（4）通过 Array.from 方法来实现转换
+
+```
+Array.from(arrayLike);
+```
+
+（5）
+
+```js
+[...arguments]
+```
+
+(6)
+
+```js
+function(...args){
+    //此时args就是已经转换的arguments数组
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##### 数组去重
 
 ```js
@@ -675,13 +731,12 @@ document.addEventListener('scroll', imgLazyLoad)
 function debounce(fn,wait){
     let timeout
     return function(){
-        let context=this
-        let args=arguments
+        let context = this
+        let args = arguments
         clearTimeout(timeout)
         timeout=setTimeout(()=>{
             fn.call(context,args)
         },wait)
-
     }
 }
 
@@ -718,6 +773,8 @@ function debounce(func, wait, immediate) {
 }
 
 ```
+
+
 
 
 
@@ -1132,7 +1189,7 @@ Object.assign2 = function(target, ...source) {
 
 
 
-##### 实现JSON.stringify
+##### 实现JSON.stringify  00
 
 ```js
 function jsonStringify(data){
