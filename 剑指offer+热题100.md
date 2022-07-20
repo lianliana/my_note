@@ -1908,6 +1908,34 @@ var reconstructQueue = function(people) {
 
 
 
+###### [739. 每日温度](https://leetcode.cn/problems/daily-temperatures/)
+
+```js
+ var dailyTemperatures = function(temperatures) {
+    let res = new Array(temperatures.length).fill(0)
+    let stack = []
+    for(let i=temperatures.length-1;i>=0;i--){
+        while(stack.length>0 && temperatures[stack[stack.length-1]] <= temperatures[i]){
+            stack.pop()
+        }
+        if(stack.length>0){
+            res[i] = stack[stack.length-1] - i
+        }
+        stack.push(i)
+    }
+    return res
+};
+//判别是否需要使用单调栈，如果需要找到左边或者右边第一个比当前位置的数大或者小，则可以考虑使用单调栈；单调栈的题目如矩形米面积等等
+```
+
+
+
+
+
+
+
+
+
 ##### 前缀和
 
 ###### 437 [路径总和 III](https://leetcode-cn.com/problems/path-sum-iii/)
@@ -2108,4 +2136,6 @@ var findKthLargest = function(nums, k) {
    }
 };
 ```
+
+
 
