@@ -13,6 +13,18 @@ Banana,Orange,Lemon,Kiwi,Apple,Mango
 
 
 
+sort() 是改变原数组的顺序
+
+
+
+
+
+'a'.charCodeAt() ===  97
+
+'A'.charCodeAt() === 65
+
+String.formCharCode(65) === 'A'
+
 
 
 ##### [剑指 Offer II 09用两个栈实现队列](https://leetcode-cn.com/problems/yong-liang-ge-zhan-shi-xian-dui-lie-lcof/)
@@ -1268,8 +1280,6 @@ function mydfs(cur,size,ans,digits){
 }
 ```
 
-
-
 ###### [31. 下一个排列](https://leetcode-cn.com/problems/next-permutation/)
 
 ```js
@@ -1305,8 +1315,6 @@ var nextPermutation = function(nums) {
     }
 };
 ```
-
-
 
 ###### 11.  [盛最多水的容器](https://leetcode-cn.com/problems/container-with-most-water/)
 
@@ -1908,24 +1916,76 @@ var reconstructQueue = function(people) {
 
 
 
-###### [739. 每日温度](https://leetcode.cn/problems/daily-temperatures/)
+###### [61. 汉明距离](https://leetcode.cn/problems/hamming-distance/)
 
 ```js
- var dailyTemperatures = function(temperatures) {
-    let res = new Array(temperatures.length).fill(0)
-    let stack = []
-    for(let i=temperatures.length-1;i>=0;i--){
-        while(stack.length>0 && temperatures[stack[stack.length-1]] <= temperatures[i]){
-            stack.pop()
-        }
-        if(stack.length>0){
-            res[i] = stack[stack.length-1] - i
-        }
-        stack.push(i)
+//通过 a & (a-1) 来去除最低位的1
+var hammingDistance = function(x, y) {
+    let sum = 0
+    let z = x^y
+    while(z){
+        z &= (z-1)
+        sum++
     }
-    return res
+    return sum
 };
-//判别是否需要使用单调栈，如果需要找到左边或者右边第一个比当前位置的数大或者小，则可以考虑使用单调栈；单调栈的题目如矩形米面积等等
+
+//通过 %2来判断是否有1  
+var hammingDistance = function(x, y) {
+    let sum = 0
+    while(x || y){
+        if(x%2 != y%2){
+            sum++
+        }
+        x>>=1
+        y>>=1
+    }
+    return sum
+};
+
+```
+
+
+
+
+
+### hash表以及数组
+
+##### [448. 找到所有数组中消失的数字](https://leetcode.cn/problems/find-all-numbers-disappeared-in-an-array/)
+
+```js
+//解法1  利用原数组 o(n)时间复杂度  o(1)空间复杂度
+var findDisappearedNumbers = function(nums) {
+    let len = nums.length
+    for(let i=0;i<len;i++){
+        let temp = (nums[i]-1) % len
+        nums[temp] += len 
+    }
+    const ret = []
+    for(const [index,num] of nums.entries()){
+        if(num<=len){
+            ret.push(index+1)
+        }
+    }
+    return ret
+};
+
+//解法2  利用Set
+var findDisappearedNumbers = function(nums) {
+    let set = new Set()
+    nums.forEach(item=>{
+        set.add(item)
+    })
+    let ret = []
+    for(let i=1;i<=nums.length;i++){
+        if(set.has(i)){
+            continue
+        }else{
+            ret.push(i)
+        }
+    }
+    return ret
+};
 ```
 
 
@@ -1934,9 +1994,35 @@ var reconstructQueue = function(people) {
 
 
 
+#### dfs
+
+##### [543. 二叉树的直径](https://leetcode.cn/problems/diameter-of-binary-tree/)
+
+```js
+let ans = 0
+var diameterOfBinaryTree = function(root) {
+    ans = 0
+    depth(root)
+    return ans
+};
+function depth(node){
+    if(node == null){
+        return 0
+    }
+    let left = depth(node.left)
+    let right = depth(node.right)
+    ans = Math.max(ans,left + right)
+    return Math.max(left,right) + 1
+}
+```
 
 
-##### 前缀和
+
+
+
+
+
+#### 前缀和
 
 ###### 437 [路径总和 III](https://leetcode-cn.com/problems/path-sum-iii/)
 
@@ -1952,6 +2038,7 @@ var pathSum = function(root, targetSum) {
         }
         curr+=root.val
         let ret=0
+        //先获得ret 因为本身单独一个节点不能成为路径
         ret=(mymap.get(curr-targetSum)||0)
         mymap.set(curr,(mymap.get(curr)||0)+1)
         ret+=dfs(root.left,curr,targetSum)
@@ -1990,7 +2077,7 @@ var subarraySum = function(nums, k) {
 
 
 
-
+#### dp动态规划
 
 ###### 647 [回文子串](https://leetcode-cn.com/problems/palindromic-substrings/)
 
@@ -2015,6 +2102,8 @@ function findStrings(left,right,s){
     return count
 }
 ```
+
+
 
 
 
@@ -2089,6 +2178,149 @@ var findUnsortedSubarray = function(nums) {
 
 
 
+#### 背包算法
+
+###### [494. 目标和](https://leetcode.cn/problems/target-sum/)
+
+```js
+var findTargetSumWays = function(nums, target) {
+    function package(nums,newTarget){
+        let dp = new Array(nums.length+1).fill(0).map(()=>new Array(newTarget+1).fill(0))
+        for(let i=0;i<=nums.length;i++){
+            dp[i][0] = 1
+        }
+        for(let i=1;i<=nums.length;i++){
+            for(let j=0;j<=newTarget;j++){
+                if(j>=nums[i-1]){
+                    dp[i][j] = dp[i-1][j]+dp[i-1][j-nums[i-1]]
+                }else{
+                    dp[i][j] = dp[i-1][j]
+                }
+            }
+        }
+        return dp[nums.length][newTarget]
+    }
+    let sum = 0
+    nums.forEach((item)=>{sum+=item})
+    let newTarget = sum+target
+    if(newTarget%2 == 1 || newTarget <0) return 0
+    return package(nums,Math.floor(newTarget/2))
+};
+```
+
+
+
+###### [416. 分割等和子集](https://leetcode.cn/problems/partition-equal-subset-sum/)
+
+```js
+var canPartition = function(nums) {
+    function package(nums,target){
+        let dp = new Array(nums.length+1).fill(false).map(()=>new Array(target+1).fill(false))
+        for(let i=0;i<=nums.length;i++){
+            dp[i][0] = true
+        }
+        for(let i=1;i<=nums.length;i++){
+            for(let j=0;j<=target;j++){
+                if(nums[i-1]<=j){
+                    dp[i][j] = dp[i-1][j-nums[i-1]] || dp[i-1][j] 
+                }else{
+                    dp[i][j] =dp[i-1][j]
+                }
+            }
+        }
+        return dp[nums.length][target]
+    }
+    let sum = 0
+    nums.forEach(item=>{
+        sum+=item
+    })
+    if(sum%2 == 1) return false
+    return package(nums,Math.floor(sum/2))
+};
+```
+
+
+
+
+
+
+
+##### [前 K 个高频元素](https://leetcode.cn/problems/top-k-frequent-elements/)
+
+```js
+//map + set 来完成
+var topKFrequent = function(nums, k) {
+    let map = new Map()
+    let arr = [...new Set(nums)]
+    nums.forEach((item)=>{
+        if(map.has(item)){
+            map.set(item,map.get(item)+1)
+        }else{
+            map.set(item,1)
+        }
+    })
+    arr.sort((a,b)=>{
+        return map.get(b) - map.get(a)
+    })
+    return arr.slice(0,k)
+};
+
+//使用最小堆 + map 实现
+// 资料如下
+// https://leetcode.cn/problems/top-k-frequent-elements/solution/javascript-qian-k-ge-gao-pin-yuan-su-by-user7746o/
+var topKFrequent = function(nums, k) {
+    let map = new Map()
+    nums.forEach((item)=>{
+        if(map.has(item)){
+            map.set(item,map.get(item)+1)
+        }else{
+            map.set(item,1)
+        }
+    })
+    let heap = []
+    map.forEach((value,key)=>{
+        if(heap.length<k){
+            heap.push(key)
+            if(heap.length == k){
+                buildHeap(heap,heap.length,map)
+            }
+        }else if(map.get(heap[0])<value){
+            heap[0] = key
+            maxifyHeap(heap,0,heap.length,map)
+        }
+    })
+    return heap
+};
+
+function maxifyHeap(nums,i,heapSize,map){
+    let left = 2*i+1
+    let right =2*i+2
+    let min = i
+    if(left<heapSize && map.get(nums[left])<map.get(nums[min])){
+        min = left
+    }
+    if(right<heapSize && map.get(nums[right])<map.get(nums[min])){
+        min = right
+    }
+    if(min != i){
+        [nums[min],nums[i]] = [nums[i],nums[min]]
+        maxifyHeap(nums,min,heapSize,map)
+    }
+}
+
+function buildHeap(nums,heapSize,map){
+    for(let i=Math.floor(nums.length/2)-1;i>=0;i--){
+        maxifyHeap(nums,i,heapSize,map)
+    }
+}
+```
+
+
+
+
+
+
+
 ###### [数组中的第K个最大元素](https://leetcode-cn.com/problems/kth-largest-element-in-an-array/)
 
 参考文献：https://leetcode-cn.com/problems/kth-largest-element-in-an-array/solution/xie-gei-qian-duan-tong-xue-de-ti-jie-yi-kt5p2/
@@ -2136,6 +2368,4 @@ var findKthLargest = function(nums, k) {
    }
 };
 ```
-
-
 
