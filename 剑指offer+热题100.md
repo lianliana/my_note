@@ -1822,7 +1822,7 @@ var findDuplicate = function(nums) {
         while(nums[i]!=i+1){
             //该步操作时将3换到位置3 如果位置3就是3那么说明重复了
             if(nums[i]!=nums[nums[i]-1]){
-                swap(nums,i,nums[i]-1)
+                swap(nums,i,nums[i]-1) // let temp = nums[i]-1;  [nums[i],nums[temp]] = [nums[temp],nums[i]]; 或写成这样！
             }else{
                 return nums[i]
             }
@@ -1837,25 +1837,6 @@ var findDuplicate = function(nums) {
 ```
 
 
-
-######  309 [最佳买卖股票时机含冷冻期](https://leetcode-cn.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/)
-
-```js
-var maxProfit = function(prices) {
-    let f=new Array(prices.length).fill(0).map(()=>new Array(3).fill(0))
-    f[0][0]=-prices[0]
-    // f[i][0]: 手上持有股票的最大收益
-    // f[i][1]: 手上不持有股票，并且处于冷冻期中的累计最大收益
-    // f[i][2]: 手上不持有股票，并且不在冷冻期中的累计最大收益
-    let n=prices.length
-    for(let i=1;i<n;i++){
-        f[i][0]=Math.max(f[i-1][0],f[i-1][2]-prices[i])
-        f[i][1]=f[i-1][0]+prices[i]
-        f[i][2]=Math.max(f[i-1][1],f[i-1][2])
-    }
-    return Math.max(f[n-1][1],f[n-1][2])
-};
-```
 
 
 
@@ -1949,6 +1930,80 @@ var hammingDistance = function(x, y) {
 
 
 
+
+
+
+
+### 二叉树相关
+
+###### [337. 打家劫舍 III](https://leetcode.cn/problems/house-robber-iii/)
+
+```js
+var rob = function(root) {
+    let  myMap=new Map()
+    function robTree(node){
+        if(node==null){
+            return 0
+        }
+        if(myMap.has(node)){
+            return myMap.get(node)
+        }
+        let ans1=node.val+(node.left?robTree(node.left.left)+robTree(node.left.right):0)+(node.right?robTree(node.right.right)+robTree(node.right.left):0)
+        let ans2=robTree(node.left)+robTree(node.right)
+        let ans=Math.max(ans1,ans2)
+        myMap.set(node,ans)
+        return ans
+    }
+    return robTree(root)
+};
+```
+
+
+
+###### [297. 二叉树的序列化与反序列化](https://leetcode.cn/problems/serialize-and-deserialize-binary-tree/)
+
+```js
+var serialize = function(root) {
+    return rserialize(root, '');
+};
+
+var deserialize = function(data) {
+    const dataArray = data.split(",");
+    return rdeserialize(dataArray);
+};
+
+const rserialize = (root, str) => {
+    if (root === null) {
+        str += "None,";
+    } else {
+        str += root.val + '' + ",";
+        str = rserialize(root.left, str);
+        str = rserialize(root.right, str);
+    }
+    return str;
+}
+
+const rdeserialize = (dataList) => {
+    if (dataList[0] === "None") {
+        dataList.shift();
+        return null;
+    }
+
+    const root = new TreeNode(parseInt(dataList[0]));
+    dataList.shift();
+    root.left = rdeserialize(dataList);
+    root.right = rdeserialize(dataList);
+
+    return root;
+}
+```
+
+
+
+
+
+
+
 ### hash表以及数组
 
 ##### [448. 找到所有数组中消失的数字](https://leetcode.cn/problems/find-all-numbers-disappeared-in-an-array/)
@@ -1996,7 +2051,7 @@ var findDisappearedNumbers = function(nums) {
 
 #### dfs
 
-##### [543. 二叉树的直径](https://leetcode.cn/problems/diameter-of-binary-tree/)
+###### [543. 二叉树的直径](https://leetcode.cn/problems/diameter-of-binary-tree/)
 
 ```js
 let ans = 0
@@ -2017,6 +2072,55 @@ function depth(node){
 ```
 
 
+
+#### bfs
+
+###### [301. 删除无效的括号](https://leetcode.cn/problems/remove-invalid-parentheses/)
+
+```js
+var removeInvalidParentheses = function(s) {
+    let set = new Set()
+    let ans = []
+    set.add(s)
+    while(set.size>0){
+        for(const str of set){
+            if(valid(str)){
+                ans.push(str)
+            }
+        }
+        if(ans.length>0){
+            return ans
+        }
+        let nextSet = new Set()
+        for(let str of set){
+            for(let i=0;i<str.length;i++){
+                if(str[i]=='(' || str[i]==')'){
+                    nextSet.add(str.slice(0,i)+str.slice(i+1))
+                }
+            }
+        }
+        set = nextSet
+    }
+    return [""]
+};
+
+function valid(str){
+    let count = 0
+    let index = 0
+    while(index<str.length){
+         if(str[index] == '('){
+             count++
+         }else if(str[index] == ')'){
+             count--
+             if(count<0){
+                 return false
+             }
+         }
+         index++
+    }
+    return count == 0 ? true : false
+}
+```
 
 
 
@@ -2175,6 +2279,29 @@ var findUnsortedSubarray = function(nums) {
     return end-start+1
 };
 ```
+
+
+
+######  309 [最佳买卖股票时机含冷冻期](https://leetcode-cn.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/)
+
+```js
+var maxProfit = function(prices) {
+    let f=new Array(prices.length).fill(0).map(()=>new Array(3).fill(0))
+    f[0][0]=-prices[0]
+    // f[i][0]: 手上持有股票的最大收益
+    // f[i][1]: 手上不持有股票，并且处于冷冻期中的累计最大收益
+    // f[i][2]: 手上不持有股票，并且不在冷冻期中的累计最大收益
+    let n=prices.length
+    for(let i=1;i<n;i++){
+        f[i][0]=Math.max(f[i-1][0],f[i-1][2]-prices[i])
+        f[i][1]=f[i-1][0]+prices[i]
+        f[i][2]=Math.max(f[i-1][1],f[i-1][2])
+    }
+    return Math.max(f[n-1][1],f[n-1][2])
+};
+```
+
+
 
 
 

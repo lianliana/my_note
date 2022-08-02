@@ -205,6 +205,36 @@ function countDownStart () {
 
 
 
+
+
+##### 如何测试localStroage的大小
+
+```js
+let total = ''
+  let str = ''
+  while (str.length !== 10240) {
+  str = str + '0123456789'
+  }
+  localStorage.clear()
+  function testLocalStorage(){
+    let timer = setInterval(()=>{
+      try {
+        localStorage.setItem('test',total)
+      } catch (e) {
+        clearInterval(timer)
+        console.log(`爆满了,最大值为${total.length/1024}KB`);
+        localStorage.clear()
+      }
+      total += str
+    },0)
+  }
+  testLocalStorage()
+```
+
+
+
+
+
 ##### 继承
 
 ###### 原型链继承
@@ -783,7 +813,7 @@ function debounce(func, wait, immediate) {
 ```js
 function throttle(func, wait){
     let context,args
-    let prev = 0
+    let prev = 0	
     return function(){
         context = this
         args = arguments

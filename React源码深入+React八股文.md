@@ -106,7 +106,7 @@ React16架构可以分为三层：
 
 
 
-#### 谈一谈你理解的函数式编程？
+### 谈一谈你理解的函数式编程？
 
 ```js
 简单说，"函数式编程"是一种"编程范式"（programming paradigm），也就是如何编写程序的方法论。
@@ -364,6 +364,8 @@ static getDerivedStateFromProps(nextProps, prevState) {
     return null;
 }
 ```
+
+
 
 
 
@@ -860,7 +862,6 @@ function ParentComponent(props){
 		</div>
 	)
 }
-复制代码
 ```
 
 如果想把父组件中的属性传给所有的子组件，需要使用`React.Children`方法。
@@ -879,7 +880,6 @@ function RadioOption(props) {
     </label>
   )
 }
-复制代码
 ```
 
 然后是父组件，不仅需要把它所有的子组件显示出来，还需要为每个子组件赋上name属性和值：
@@ -917,7 +917,6 @@ function App() {
   )
 }
 export default App;
-复制代码
 ```
 
 以上，`React.Children.map`让我们对父组件的所有子组件又更灵活的控制。
