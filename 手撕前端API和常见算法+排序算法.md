@@ -2105,18 +2105,18 @@ function quickSort(arr,begin,end){
 }
 
 function quickSort(arr,begin,end){
-    if(begin>end) return arr
+    if(begin>end) return arr   //复习重点1 要注意终止条件
     let item = arr[begin]
     let left = begin 
     let right = end
-    while(left!=right){
-        while(arr[right]>=item&&left<right) right--
+    while(left!=right){ //复习重点3 这里left!=right
+        while(arr[right]>=item&&left<right) right-- //复习重点4 要从右边开始
         arr[left] = arr[right]
         while(arr[left]<=item&&left<right) left++
         arr[right] = arr[left]
     }
     arr[left] = item
-    quickSort(arr,begin,left-1)
+    quickSort(arr,begin,left-1) //复习重点2 要注意这里left-1 下面left+1
     quickSort(arr,left+1,end)
     return arr
 }
