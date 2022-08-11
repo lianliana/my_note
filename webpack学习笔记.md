@@ -477,6 +477,10 @@ const config = {
 
 
 
+##### awesom-typescript-loader
+
+可以让Webpack使用TypeScript的标准配置文件`tsconfig.json`编译TypeScript代码
+
 
 
 #### Resolve配置
