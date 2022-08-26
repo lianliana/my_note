@@ -615,6 +615,12 @@ eventBus.emit('aaa', false, '布兰', 12)
 
 
 
+
+
+
+
+
+
 ##### 手写观察者模式
 
 ```js
@@ -624,7 +630,7 @@ var events = (function() {
   return {
     // 注册监听函数
     subscribe: function(topic, handler) {
-      if (!topics.hasOwnProperty(topic)) {
+      if (!topics.hasOwnProperty(topic)) { 
         topics[topic] = [];
       }
       topics[topic].push(handler);
@@ -2168,20 +2174,17 @@ function radixSort(nums){
         let temp = nums[i][nums[i].length-1]
         arr[temp].push(nums[i])
     }
+    nums = [].concat(...arr)
+    arr = new Array(10).fill(0).map(()=>new Array())
     for(let i=maxDigits-2;i>=0;i--){
-        for(let j=0;j<=9;j++){
-            let temp = arr[j]
-            let len = temp.length
-            while(len--){
-                let str = temp.shift()
-                arr[str[i]].push(str)
-            }
+        for(let j=0;j<nums.length;j++){
+            let temp = nums[j][i]
+            arr[temp].push(nums[j])
         }
+        nums = [].concat(...arr)
+        arr = new Array(10).fill(0).map(()=>new Array())
     }
-    let res = [].concat(arr)
-    res.forEach((val,index)=>{
-        nums[index] = +res[index]
-    })
+    nums = nums.map((item)=>parseInt(item))
     return nums
 }
 ```
