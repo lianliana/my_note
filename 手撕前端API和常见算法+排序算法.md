@@ -71,65 +71,6 @@ function add(a,b){
 
 
 
-
-
-### LazyMan
-
-```js
-class LazyManClass {
-  constructor(name) {
-    this.name = name
-    this.queue = []
-    console.log(`Hi I am ${name}`)
-    setTimeout(() => {
-      this.next()
-    },0)
-  }
-
-  sleepFirst(time) {
-    const fn = () => {
-      setTimeout(() => {
-        console.log(`等待了${time}秒...`)
-        this.next()
-      }, time)
-    }
-    this.queue.unshift(fn)
-    return this
-  }
-
-  sleep(time) {
-    const fn = () => {
-      setTimeout(() => {
-        console.log(`等待了${time}秒...`)
-        this.next()
-      },time)
-    }
-    this.queue.push(fn)
-    return this
-  }
-
-  eat(food) {
-    const fn = () => {
-      console.log(`I am eating ${food}`)
-      this.next()
-    }
-    this.queue.push(fn)
-    return this
-  }
-
-  next() {
-    const fn = this.queue.shift()
-    fn && fn()
-  }
-}
-
-function LazyMan(name) {
-  return new LazyManClass(name)
-}
-```
-
-
-
 ##### 数据类型判断
 
 ```js
@@ -1283,6 +1224,58 @@ var obj = (new Function('return ' + json))();
 
 
 
+##### 手写async await
+
+```js
+// 接收生成器作为参数，建议先移到后面，看下生成器中的代码
+var myAsync = (generator) => {
+  // 注意 iterator.next() 返回对象的 value 是 promiseAjax()，一个 promise
+  const iterator = generator();
+
+  // handle 函数控制 async 函数的 挂起-执行
+  const handle = (iteratorResult) => {
+    if (iteratorResult.done) return;
+
+    const iteratorValue = iteratorResult.value;
+
+    // 只考虑异步请求返回值是 promise 的情况
+    if (iteratorValue instanceof Promise) {
+      // 递归调用 handle，promise 兑现后再调用 iterator.next() 使生成器继续执行
+      iteratorValue
+        .then((result) => handle(iterator.next(result)))
+        .catch((e) => iterator.throw(e));
+    }
+  };
+
+  try {
+    handle(iterator.next());
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+myAsync(function* () {
+  try {
+    const a = yield Promise.resolve(1);
+    const b = yield Promise.resolve(a + 10);
+    const c = yield Promise.resolve(b + 100);
+    console.log(a, b, c); // 输出 1，11，111
+  } catch (e) {
+    console.log("出错了：", e);
+  }
+});
+```
+
+
+
+###### Generator原理
+
+https://blog.csdn.net/weixin_43964148/article/details/107917507
+
+
+
+
+
 ##### Promise
 
 ```js
@@ -1554,6 +1547,155 @@ Promise.allSettled = function(promiseArr) {
 }
 
 ```
+
+
+
+
+
+##### Promise实战
+
+
+
+
+
+###### 带并发限制的异步调度器Scheduler
+
+```js
+class Scheduler{
+    constructor(limit){
+        this.cache = []
+        this.tasks = []
+        this.limit = limit
+    }
+    add(promiseCreator){
+        return new Promise((resolve,reject)=>{
+            promiseCreator.resolve = resolve
+            if(this.tasks.length<this.limit){
+                this.tasks.push(promiseCreator)
+                this.runTask(promiseCreator)
+            }else{
+                this.cache.push(promiseCreator)
+            }
+        })
+    }
+
+    runTask(promiseCreator){
+        promiseCreator().then(()=>{
+            promiseCreator.resolve()
+            this.tasks.splice(this.tasks.indexOf(promiseCreator),1)
+            if(this.cache.length>0){
+                let newTask = this.cache.shift()
+                this.tasks.push(newTask)
+                this.runTask(newTask)
+            }
+        })
+    }
+}
+
+let scheduler = new Scheduler(2)
+let timeFunc = (time)=>{
+    return new Promise((resolve,reject)=>{
+        setTimeout(()=>{
+            resolve()
+        },time)
+    })
+}
+addTask = (time,order) =>{
+    let ret = scheduler.add(()=>timeFunc(time))
+    ret.then(()=>{
+        console.log(order);
+    })
+}
+
+addTask(1000,'1')
+addTask(500,'2')
+addTask(300,'3')
+addTask(400,'4')
+```
+
+
+
+###### LazyMan
+
+```js
+class LazyManClass {
+  constructor(name) {
+    this.name = name
+    this.queue = []
+    console.log(`Hi I am ${name}`)
+    setTimeout(() => {
+      this.next()
+    },0)
+  }
+
+  sleepFirst(time) {
+    const fn = () => {
+      setTimeout(() => {
+        console.log(`等待了${time}秒...`)
+        this.next()
+      }, time)
+    }
+    this.queue.unshift(fn)
+    return this
+  }
+
+  sleep(time) {
+    const fn = () => {
+      setTimeout(() => {
+        console.log(`等待了${time}秒...`)
+        this.next()
+      },time)
+    }
+    this.queue.push(fn)
+    return this
+  }
+
+  eat(food) {
+    const fn = () => {
+      console.log(`I am eating ${food}`)
+      this.next()
+    }
+    this.queue.push(fn)
+    return this
+  }
+
+  next() {
+    const fn = this.queue.shift()
+    fn && fn()
+  }
+}
+
+function LazyMan(name) {
+  return new LazyManClass(name)
+}
+
+new LazyMan('Hank').sleep(10000).eat('dinner').next()
+// Hi! This is Hank!
+//等待10秒..
+// Wake up after 10
+// Eat dinner~
+
+new LazyMan('Hank').eat('dinner').eat('supper')
+// Hi This is Hank!
+// Eat dinner~
+// Eat supper~
+
+new LazyMan('Hank').sleepFirst(5).eat('supper')
+//等待5秒
+// Wake up after 5
+// Hi This is Hank!
+// Eat supper
+```
+
+
+
+
+
+
+
+
+
+
 
 
 
