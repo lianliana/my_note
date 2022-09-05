@@ -496,6 +496,8 @@ function deepClone(target, map = new WeakMap()) {
         return target;
     }
 }
+//常用的库有 loadsh中 _.cloneDeep() 
+// jQuery.extend()和JSON.stryify()
 
 ```
 
@@ -759,10 +761,8 @@ function debounce(func, wait, immediate) {
 
 ```js
 function throttle(func, wait){
-    let context,args
     let prev = 0	
     return function(){
-        context = this
         args = arguments
         let now = +new Date()
         if(now - prev > wait){
