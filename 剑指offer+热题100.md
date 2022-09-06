@@ -2496,3 +2496,90 @@ var findKthLargest = function(nums, k) {
 };
 ```
 
+
+
+
+
+
+
+
+
+#### 斜着遍历二维数组
+
+中间开始
+
+```js
+let arr=[
+    [1,2,3],
+    [4,5,6],
+    [7,8,9]
+]
+let n = 3;
+for(let l=1;l<=n;l++){
+    for(let i=0;i<=n-l;i++){
+        let j = l+i-1
+        console.log(arr[i][j]);
+    }
+}
+//1 5 9 2 6
+console.log('*******');
+
+for(let l=1;l<=n;l++){
+    for(let j=0;j<=n-l;j++){
+        let i = l+j-1
+        console.log(arr[i][j]);
+    }
+}
+//1 5 9 4 8 7
+```
+
+
+
+两头开始
+
+```js
+let arr=[
+    [1,2,3],
+    [4,5,6],
+    [7,8,9]
+]
+
+let k = arr.length + arr[0].length - 1
+let n = arr[0].length
+let ans = []
+for(let i=0;i<k;i++){
+    let x = (i>n-1) ? (i-n+1):0
+    let jStart = (i>n-1) ? n-1 : i
+    let jEnd = (i-arr.length+1<0) ? 0 : i-arr.length+1
+    for(let j=jStart;j>=jEnd;j--){
+        ans.push(arr[x][j])
+        x++
+    }
+}
+console.log(ans);
+// 1, 2, 4, 3, 5,7, 6, 8, 9
+
+
+
+let arr=[
+    [1,2,3],
+    [4,5,6],
+    [7,8,9]
+]
+
+let k = arr.length + arr[0].length -1
+let n = arr.length
+let ans = []
+for(let i=0;i<k;i++){
+    let y = i>n-1 ? i-n+1 : 0
+    let startX = i>n-1 ? n-1 : i
+    let endX = i-arr.length+1 >0 ? i-arr.length+1 : 0
+    for(let j=startX;j>=endX;j--){
+        ans.push(arr[j][y])
+        y++
+    }
+}
+//1, 4, 2, 7, 5, 3, 8, 6, 9
+console.log(ans);
+```
+
