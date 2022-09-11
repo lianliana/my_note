@@ -567,51 +567,47 @@ eventBus.emit('aaa', false, '布兰', 12)
 ##### 手写观察者模式
 
 ```js
-var events = (function() {
-  var topics = {};
-
-  return {
-    // 注册监听函数
-    subscribe: function(topic, handler) {
-      if (!topics.hasOwnProperty(topic)) { 
-        topics[topic] = [];
-      }
-      topics[topic].push(handler);
-    },
-
-    // 发布事件，触发观察者回调事件
-    publish: function(topic, info) {
-      if (topics.hasOwnProperty(topic)) {
-        topics[topic].forEach(function(handler) {
-          handler(info);
-        });
-      }
-    },
-
-    // 移除主题的一个观察者的回调事件
-    remove: function(topic, handler) {
-      if (!topics.hasOwnProperty(topic)) return;
-
-      var handlerIndex = -1;
-      topics[topic].forEach(function(item, index) {
-        if (item === handler) {
-          handlerIndex = index;
-        }
-      });
-
-      if (handlerIndex >= 0) {
-        topics[topic].splice(handlerIndex, 1);
-      }
-    },
-
-    // 移除主题的所有观察者的回调事件
-    removeAll: function(topic) {
-      if (topics.hasOwnProperty(topic)) {
-        topics[topic] = [];
-      }
+class Subject { //被观察者数据---吊瓶
+    constructor(name="知了哥"){
+        this.state = 100;
+        this.name = name;
+        this.obs = [] //会有多个观察者
     }
-  };
-})();
+    addObs(ob){
+        this.obs.push(ob)
+    }
+    setState(state){ //改变状态的方法
+        this.state = state
+        //要去通知观察者去做动作，--- 拔针 
+        this.obs.forEach((ob)=>{
+            ob.update(this) //让观察者去做更新
+        })
+    }
+}
+
+class Obeserver{ //观察者 -- 医生
+
+    constructor(name){
+        this.name = name;
+        //在观察者里面是不是也可以记录 观察了哪些 数据（吊瓶）
+    }
+    update(subject){
+        //医生也有可能观察多个 打针的人 
+        if (!subject.state) {
+            console.log(`${this.name} 收到通知 :${subject.name} 的 带瓶打完啦！`)
+        }else {
+            console.log(` ${this.name} 收到通知 :${subject.name} 的 带瓶量: ${subject.state}！`)
+        }
+
+    }
+
+}
+var zhiliao = new Subject();
+var hushi = new Obeserver("护士");
+var yisheng = new Obeserver("医生")
+zhiliao.addObs(hushi) //把观察者放到被观察这的里面去
+zhiliao.addObs(yisheng)
+zhiliao.setState(50) 
 ```
 
 
@@ -758,6 +754,8 @@ function debounce(func, wait, immediate) {
 
 
 ##### 函数节流
+
+最终版：支持取消节流；另外通过传入第三个参数，options.leading 来表示是否可以立即执行一次，opitons.trailing 表示结束调用的时候是否还要执行一次，默认都是 true。 注意设置的时候不能同时将 leading 或 trailing 设置为 false。
 
 ```js
 function throttle(func, wait){
@@ -1553,6 +1551,40 @@ Promise.allSettled = function(promiseArr) {
 
 
 ##### Promise实战
+
+
+
+### 并发限制request池
+
+```js
+function request(url){
+    return new Promise((resolve,reject)=>{
+        setTimeout(()=>{
+            resolve()
+            console.log(`request ${url}`);
+        },1000)
+    })
+}
+
+function addTask(url){
+    const task = request(url)
+    pool.push(task)
+    task.then(()=>{
+        pool.splice(pool.indexOf(task),1)
+        let newUrl = urls.shift()
+        if(newUrl!=undefined){
+            addTask(newUrl)
+        }
+    })
+}
+
+let urls =  ['bytedance.com','tencent.com','alibaba.com','microsoft.com','apple.com','hulu.com','amazon.com'] // 请求地址
+let pool = []//并发池
+let max = 3 //最大并发量
+for(let i=0;i<max;i++){
+    addTask(urls.shift())
+}
+```
 
 
 

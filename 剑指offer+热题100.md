@@ -2583,3 +2583,36 @@ for(let i=0;i<k;i++){
 console.log(ans);
 ```
 
+
+
+
+
+#### [面试题 16.10. 生存人数](https://leetcode.cn/problems/living-people-lcci/) 差分数组
+
+```js
+var maxAliveYear = function(birth, death) {
+    let arr = new Array(101).fill(0)
+    //因为题目给了1900-2000年 所以可以只申请101长度数组
+    for(let i=0;i<birth.length;i++){
+        let index = birth[i] - 1900
+        arr[index] += 1
+    }
+    for(let i=0;i<death.length;i++){
+        let index = death[i] - 1900 +1
+        arr[index] -= 1
+    }
+    //把每一年增减情况记录下来 生成差分数组
+    let ans = 0 
+    let sum = 0
+    let maxx = 0
+    for(let i=0;i<arr.length;i++){
+        sum += arr[i]
+        if(sum> maxx){
+            ans = i
+            maxx = sum
+        }
+    }
+    return ans + 1900
+};
+```
+
