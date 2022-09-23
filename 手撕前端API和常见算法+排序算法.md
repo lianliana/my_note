@@ -174,6 +174,336 @@ let total = ''
 
 
 
+### 循环打印红绿灯(状态模式)
+
+[掘金状态模式好文](https://juejin.cn/post/7088863590375456781#heading-5)
+
+```js
+let state = [
+    {
+        color:'red',
+        time:3000
+    },
+    {
+        color:'yellow',
+        time:2000
+    },
+    {
+        color:'green',
+        time:5000
+    }
+]
+
+let total = state.reduce((prev,curr)=>prev+curr.time,0)
+async function startShow(){
+    for(let i=0;i<state.length;i++){
+        console.log(state[i].color);
+        await new Promise((resolve)=>{
+            setTimeout(() => {
+                resolve()
+            }, state[i].time);
+        })
+    }
+}
+
+startShow()
+setInterval(startShow,total)
+```
+
+
+
+
+
+### 数组转树形 
+
+```js
+// 期望结果
+[
+  {
+    "id": 1,
+    "pid": 0,
+    "text": "xxx",
+    "children": [
+      {
+        "id": 2,
+        "pid": 1,
+        "text": "xxx-2",
+        "children": [
+          {
+            "id": 4,
+            "pid": 2,
+            "text": "xxx-2-4"
+          },
+          {
+            "id": 6,
+            "pid": 2,
+            "text": "xxx-2-6"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "pid": 1,
+        "text": "xxx-3",
+        "children": [
+          {
+            "id": 5,
+            "pid": 3,
+            "text": "xxx-3-5"
+          }
+        ]
+      }
+    ]
+  }
+]
+
+let data = [
+    {id: 1, pid: 0, text: 'xxx'},
+    {id: 2, pid: 1, text: 'xxx-2'},
+    {id: 3, pid: 1, text: 'xxx-3'},
+    {id: 4, pid: 2, text: 'xxx-2-4'},
+    {id: 5, pid: 3, text: 'xxx-3-5'},
+    {id: 6, pid: 2, text: 'xxx-2-6'}
+];
+
+let obj ={}
+for(let i=0;i<data.length;i++){
+    let item = data[i]
+    obj[item.id] = item
+}
+let res = null
+for(let i=0;i<data.length;i++){
+    let item = data[i]
+    if(item.pid == 0){
+        res = item
+    }else{
+        if(obj[item.pid].children){
+            obj[item.pid].children.push(item)
+        }else{
+            obj[item.pid].children = [item]
+        }
+    }
+}
+console.log(res);
+```
+
+
+
+### 树转数组
+
+```js
+const root = [
+    {
+        id: 1,
+        name: '1x',
+        children: [
+            {
+                id: 11, name: '11x', children: [{ id: 111, name: '111x' }]
+            },
+            { id: 12, name: '12x' },
+        ]
+    },
+    {
+        id: 2,
+        name: '1x',
+        children: [
+            {
+                id: 21, name: '21x', children: [{ id: 211, name: '21x' }]
+            },
+            { id: 12, name: '12x' },
+        ]
+    },
+    {id: 3,name: '3x'}
+]
+//输出以下格式，
+//{id:1,name:'1x',children:[11,21]}
+//{id:11,name:'1x',parent:[1],children:[111]}
+//{id:12,name:'12x',parent:[1]}
+//{id:3,name:'3x'}
+
+let res = {}
+dfs(root)
+function dfs(nodes=[],pid=null){
+  let children = []
+  for(let i=0;i<nodes.length;i++){
+    let id = nodes[i].id
+    children.push(id)
+    if(res[id] === undefined){
+      res[id] = {id,name:nodes[i].name}
+    }
+    if(pid){
+      res[id].parent = [pid]
+    }
+    let myChildren = dfs(nodes[i].children,id)
+    if(myChildren.length>0){
+      nodes[i].children = myChildren
+    }
+  }
+  return children
+}
+console.log(res);
+```
+
+
+
+树的复选框改变勾选状态
+
+```js
+/**
+ * 题目：请根据传入的勾选项数组，完成数据勾选状态标记
+ *
+ * 补充：允许修改原对象，允许增添字段辅助完成功能
+ *
+ * 用例 1
+ * 输入： [unmarkData, ['1-1'，‘1-1-1’]]
+ * 输出： [
+ *  {
+ *    id: '1',
+ *    name: '组织1',
+ *    status: checkStatus.all,
+ *    children: [
+ *      {
+ *        id: '1-1',
+ *        name: '组织1 - 子组织1',
+ *        status: checkStatus.all,
+ *        children: [
+ *          {
+ *            id: '1-1-1',
+ *            name: '组织1 - 子组织1 - 孙子组织1',
+ *            status: checkStatus.all,
+ *          },
+            {
+ *            id: '1-1-2',
+ *            name: '组织1 - 子组织1 - 孙子组织1',
+ *            status: checkStatus.all,
+ *          },
+ *        ],
+ *      },
+ *      {
+ *        id: '1-2',
+ *        name: '组织1 - 子组织2',
+ *        status: checkStatus.all,
+ *      },
+ *    ],
+ *  },
+ *]
+ *
+ * 用例 2
+ * 输入： [unmaskData, ['1-1-1']]
+ * 输出： [
+ *  {
+ *    id: '1',
+ *    name: '组织1',
+ *    status: checkStatus.part,
+ *    children: [
+ *      {
+ *        id: '1-1',
+ *        name: '组织1 - 子组织1',
+ *        status: checkStatus.all,
+ *        children: [
+ *          {
+ *            id: '1-1-1',
+ *            name: '组织1 - 子组织1 - 孙子组织1',
+ *            status: checkStatus.all,
+ *          },
+ *        ],
+ *      },
+ *      {
+ *        id: '1-2',
+ *        name: '组织1 - 子组织2',
+ *        status: checkStatus.none,
+ *      },
+ *    ],
+ *  },
+ *]
+ *
+ */
+
+/** 勾选状态定义 */
+const checkStatus = {
+    /** 表示当前节点的所有子节点（包括子节点中的子节点等等）均未被勾选 */
+    'none' : 0,
+    /** 表示当前节点的所有子节点（包括子节点中的子节点等等）部分被勾选 */
+    'part' : 1,
+    /** 表示当前节点的所有子节点（包括子节点中的子节点等等）全部被勾选 */
+    'all' : 2,
+  }
+  
+  /** 需要处理的数据，默认 id 唯一，深度与广度不确定 */
+  const unmarkData = [
+    {
+      id: '1',
+      name: '组织1',
+      status: checkStatus.none,
+      children: [
+        {
+          id: '1-1',
+          name: '组织1 - 子组织1',
+          status: checkStatus.none,
+          children: [
+            {
+              id: '1-1-1',
+              name: '组织1 - 子组织1 - 孙子组织1',
+              status: checkStatus.none,
+            },
+          ],
+        },
+        {
+          id: '1-2',
+          name: '组织1 - 子组织2',
+          status: checkStatus.none,
+        },
+      ],
+    },
+  ]
+  
+  function mark(unmarkData, markIDs) {
+      dfs(unmarkData)
+      function dfs(nodes){
+          let children = []
+          for(let i=0;i<nodes.length;i++){
+              let node = nodes[i]
+              if(markIDs.includes(node.id)){
+                  children.push(node.id)
+                  node.status = checkStatus.all
+                  let arr = node.children 
+                  let index = 0
+                  while(index<arr.length){
+                      let temp = arr[index]
+                      index++
+                      temp.status = checkStatus.all
+                      if(temp.children){
+                          arr.push(...temp.children)
+                      }
+                  }
+              }
+              let mychildren = []
+              if(node.children){
+                  mychildren = dfs(node.children)
+              }
+              if(mychildren.length == node.children){
+                  node.status = checkStatus.all
+              }else if(mychildren.length>0){
+                  node.status = checkStatus.part
+              }
+          }
+          return children
+      }
+  }
+markIDs = ['1-1']
+mark(unmarkData,markIDs)
+console.dir(unmarkData)
+  
+```
+
+
+
+
+
+
+
+
+
 
 
 ##### 继承
