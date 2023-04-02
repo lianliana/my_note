@@ -13,6 +13,24 @@
 
 ##  preserving-and-resetting-state 什么时候会更新/什么时候会保留状态
 
+- 位置相同的时候 例如使用三元表达式 不会更新
 
+``` react
+{isPlayerA ? (
+        <Counter person="Taylor" />
+      ) : (
+        <Counter person="Sarah" />
+      )}
+```
 
-- 位置相同的时候 例如使用
+- 位置不同的时候 如
+
+``` react	
+{isPlayerA &&
+        <Counter person="Taylor" />
+      }
+      {!isPlayerA &&
+        <Counter person="Sarah" />
+      }
+```
+
