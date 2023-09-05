@@ -144,6 +144,26 @@ npx husky add .husky/commit-msg 'npx --no -- commitlint --edit $1'
 yarn husky add .husky/commit-msg 'yarn commitlint --edit $1'
 ```
 
+## tailwindcss
+[官方文档CRA配合tailwindcss](https://tailwindcss.com/docs/guides/create-react-app)
+**可能会遇和antd样式冲突的问题，需要配置**
+```js
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./src/**/*.{html,js,tsx,jsx,ts}"],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+  corePlugins: {
+    preflight: false
+  }
+}
+```
+
+## CRA 配合 Craco 解决无法修改webpack.config.js的问题
+[Craco的npm包](https://www.npmjs.com/package/@craco/craco)
+
 
 ## 其他
 1. 注意版本兼容问题，可以尝试去换package.json中的版本，删掉node_modules和package.lock.json
