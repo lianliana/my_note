@@ -69,6 +69,80 @@ function add(a,b){
 
 
 
+##### 实现并发 asyncPool
+
+```js
+async function asyncPool(poolLimit, array, iteratorFn) {
+  const ret = []; // 存储所有的异步任务
+  const executing = []; // 存储正在执行的异步任务
+  for (const item of array) {
+    // 调用iteratorFn函数创建异步任务
+    const p = Promise.resolve().then(() => iteratorFn(item, array));
+    ret.push(p); // 保存新的异步任务
+
+    // 当poolLimit值小于或等于总任务个数时，进行并发控制
+    if (poolLimit <= array.length) {
+      // 当任务完成后，从正在执行的任务数组中移除已完成的任务
+      const e = p.then(() => executing.splice(executing.indexOf(e), 1));
+      executing.push(e); // 保存正在执行的异步任务
+      if (executing.length >= poolLimit) {
+        await Promise.race(executing); // 等待较快的任务执行完成
+      }
+    }
+  }
+  return Promise.all(ret);
+}
+
+// https://juejin.cn/post/6976028030770610213 asyncPool实现
+
+```
+
+```js
+// 注意 Promise.resolve(v)和new Promise(resolve =＞ resolve(v)) 不全等 在v为promise的时候会延迟执行
+// https://juejin.cn/post/6936515826514149389
+// v是一个实例化的promise，且状态为fulfilled
+    let v = new Promise(resolve => {
+      console.log("begin");
+      resolve("then");
+    });
+
+    // 在promise里面resolve一个状态为fulfilled的promise
+
+    // 模式一 new Promise里的resolve()
+    // begin->1->2->3->then->4 可以发现then推迟了两个时序
+    // 推迟原因：浏览器会创建一个 PromiseResolveThenableJob 去处理这个 Promise 实例，这是一个微任务。
+    // 等到下次循环到来这个微任务会执行，也就是PromiseResolveThenableJob 执行中的时候，因为这个Promise 实例是fulfilled状态，所以又会注册一个它的.then()回调
+    // 又等一次循环到这个Promise 实例它的.then()回调执行后，才会注册下面的这个.then(),于是就被推迟了两个时序
+    new Promise(resolve => {
+      resolve(v);
+    }).then((v)=>{
+        console.log(v)
+    });
+
+    //  模式二 Promise.resolve(v)直接创建
+    // begin->1->then->2->3->4 可以发现then的执行时间正常了，第一个执行的微任务就是下面这个.then
+    // 原因：Promise.resolve()API如果参数是promise会直接返回这个promise实例，不会做任何处理
+/*     Promise.resolve(v).then((v)=>{
+        console.log(v)
+    }); */
+
+    new Promise(resolve => {
+      console.log(1);
+      resolve();
+    })
+      .then(() => {
+        console.log(2);
+      })
+      .then(() => {
+        console.log(3);
+      })
+      .then(() => {
+        console.log(4);
+      });
+```
+
+
+
 
 
 ##### 数据类型判断

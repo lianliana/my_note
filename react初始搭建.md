@@ -58,6 +58,22 @@ commitlint.config.js
 
 ## Preitter
 
+1. 安装prettier
+2. 配置.prettierrc.json 和 .prettierignore文件
+3. 可以在.vscode中配置settings.json 去改掉formatOnSave
+
+```js
+//配置如下
+{
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+}
+```
+
+
+
 ## Husky
 1. 安装
 husky是生成git的的各个hook钩子的。生成的钩子会在执行git的各个操作的时候触发。
