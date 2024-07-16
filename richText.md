@@ -9,17 +9,19 @@ Svg 资料 https://jirengu.github.io/svg-you-should-know/zh-cn/
 ### cyber-slide-editor 结构
 
 - cse-editor-canvas 提供对外的一个画布
-
+- ![企业微信截图_ca56c1c5-560e-4e1a-851e-88d289265801](/Users/lianlian/informations/my_note/assets/企业微信截图_ca56c1c5-560e-4e1a-851e-88d289265801.png)
   - editable-block.component 提供一个可编辑的block节点
-
+  
     - custom-editor-box 使用promisemirror的构造出来的一个个box
-
+  
+    - 其中使用html元素用svg去进行domlayout 本质是用绝对定位 + svg去画出来
+  
     - 其中包括这些box类型![img](https://api2.mubu.com/v3/document_image/06745ebd-95b9-4c0e-abae-d6a48191af8c.png)
-
+  
     - 其中svg特别强大 可以通过去计算出point 用多边形去画各种形状
-
+  
   - moveControl去控制移动
-
+  
   - resizeComponet去控制缩放
 
 ### prose mirror
