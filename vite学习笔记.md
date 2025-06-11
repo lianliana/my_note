@@ -12,7 +12,7 @@
 
 bulid
 
-![img](/Users/huanghualian/information/my_note/assets/58ce9fa2b0f14dd1bc50a9c849157e43_tplv-k3u1fbpfcp-zoom-in-crop-mark_3024_0_0_0.awebp)
+![img](assets/58ce9fa2b0f14dd1bc50a9c849157e43_tplv-k3u1fbpfcp-zoom-in-crop-mark_3024_0_0_0-9659323.awebp)
 
 - resolveId
 - load
