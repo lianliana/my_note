@@ -874,31 +874,79 @@ console.log(myFlat([1,2,3,[2,3,4],[2,[2]]]));
 ##### 深浅拷贝
 
 ```js
-const isObject = (target) => (typeof target === "object" || typeof target === "function") && target !== null;
+/**
+ * 修复版深拷贝函数
+ * @param {any} obj - 待拷贝的对象/值
+ * @param {WeakMap} wm - 处理循环引用的WeakMap（外部无需传参）
+ * @returns {any} 拷贝后的新对象/值
+ */
+function deepClone(obj, wm = new WeakMap()) {
+  // 1. 处理基本类型和null/undefined（直接返回）
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
 
-function deepClone(target, map = new WeakMap()) {
-    if (map.get(target)) {
-        return target;
-    }
-    // 获取当前值的构造函数：获取它的类型
-    let constructor = target.constructor;
-    // 检测当前对象target是否与正则、日期格式对象匹配
-    if (/^(RegExp|Date)$/i.test(constructor.name)) {
-        // 创建一个新的特殊对象(正则类/日期类)的实例
-        return new constructor(target);  
-    }
-    if (isObject(target)) {
-        map.set(target, true);  // 为循环引用的对象做标记
-        const cloneTarget = Array.isArray(target) ? [] : {};
-        for (let prop in target) {
-            if (target.hasOwnProperty(prop)) {
-                cloneTarget[prop] = deepClone(target[prop], map);
-            }
-        }
-        return cloneTarget;
-    } else {
-        return target;
-    }
+  // 2. 处理循环引用（已拷贝过则直接返回缓存的新对象）
+  if (wm.has(obj)) {
+    return wm.get(obj);
+  }
+
+  let newObj;
+
+  // 3. 先处理特殊引用类型（Date/RegExp/Set/Map）
+  // 3.1 处理Date
+  if (obj instanceof Date) {
+    newObj = new Date(obj);
+    wm.set(obj, newObj);
+    return newObj;
+  }
+
+  // 3.2 处理RegExp
+  if (obj instanceof RegExp) {
+    newObj = new RegExp(obj.source, obj.flags);
+    wm.set(obj, newObj);
+    return newObj;
+  }
+
+  // 3.3 处理Set
+  if (obj instanceof Set) {
+    newObj = new Set();
+    wm.set(obj, newObj); // 先存入wm，避免循环引用
+    obj.forEach(item => {
+      newObj.add(deepClone(item, wm));
+    });
+    return newObj;
+  }
+
+  // 3.4 处理Map
+  if (obj instanceof Map) {
+    newObj = new Map();
+    wm.set(obj, newObj);
+    obj.forEach((value, key) => {
+      newObj.set(deepClone(key, wm), deepClone(value, wm));
+    });
+    return newObj;
+  }
+
+  // 4. 处理普通对象/数组（保留原型链）
+  // 数组：Array.prototype.constructor 是 Array，执行后返回[]
+  // 自定义对象：返回原原型链的实例，保留原型方法
+  newObj = new obj.constructor();
+  wm.set(obj, newObj); // 存入wm，处理循环引用
+
+  // 5. 遍历所有自有属性（字符串键 + Symbol键）
+  const allKeys = [
+    ...Object.getOwnPropertyNames(obj),
+    ...Object.getOwnPropertySymbols(obj),
+  ];
+
+  for (const key of allKeys) {
+    const val = obj[key]; // 正确取原对象的属性值
+    // 递归拷贝属性值，必须传递wm参数
+    newObj[key] = deepClone(val, wm);
+  }
+
+  return newObj;
 }
 //常用的库有 loadsh中 _.cloneDeep() 
 // jQuery.extend()和JSON.stryify()
@@ -1956,9 +2004,145 @@ Promise.allSettled = function(promiseArr) {
 
 ##### Promise实战
 
+### 并发池简单写法
+
+```js
+/**
+ * 原并发请求函数（保留你的代码，仅替换fetch为模拟函数）
+ * @param {string[]} urls - 请求URL列表（测试时用序号代替）
+ * @param {number} maxNum - 最大并发数
+ * @returns {Promise<Array>} 按顺序返回请求结果
+ */
+function multiRequest(urls, maxNum) {
+  const result = new Array(urls.length).fill(undefined);
+  let count = 0;
+  return new Promise((resolve) => {
+    function fetchOne() {
+      const index = count++;
+      if (index >= urls.length) {
+        if (result.every((item) => item !== undefined)) {
+          resolve(result);
+        }
+        return;
+      }
+      const url = urls[index];
+      // 模拟fetch请求：随机延迟500-1500ms，返回URL和完成时间
+      mockFetch(url)
+        .then((res) => {
+          result[index] = res;
+          console.log(`请求${url}完成，结果：`, res);
+          fetchOne(); // 一个请求完成后，启动下一个
+        })
+        .catch((err) => {
+          // 新增：错误处理，避免请求失败中断流程
+          result[index] = err;
+          console.error(`请求${url}失败：`, err);
+          fetchOne();
+        });
+    }
+
+    // 初始启动maxNum个并发请求
+    for (let i = 0; i < maxNum; i++) {
+      fetchOne();
+    }
+  });
+}
+
+/**
+ * 模拟fetch请求（替代真实网络请求，可控延迟）
+ * @param {string} url - 请求标识（测试用）
+ * @returns {Promise<object>} 模拟响应
+ */
+function mockFetch(url) {
+  return new Promise((resolve, reject) => {
+    // 随机延迟500-1500ms，模拟网络请求耗时
+    const delay = Math.floor(Math.random() * 1000) + 500;
+    setTimeout(() => {
+      // 模拟10%的失败概率
+      if (Math.random() < 0.1) {
+        reject(`请求${url}超时`);
+      } else {
+        resolve({
+          url,
+          delay,
+          finishTime: new Date().toLocaleTimeString(), // 完成时间（时分秒）
+        });
+      }
+    }, delay);
+  });
+}
+
+// ==================== 测试用例 ====================
+(async function test() {
+  // 测试数据：5个请求（用url1-url5标识）
+  const testUrls = ["url1", "url2", "url3", "url4", "url5"];
+  const maxConcurrent = 2; // 最大并发数设为2
+
+  console.log(`开始测试：并发数=${maxConcurrent}，请求数=${testUrls.length}`);
+  console.log("请求启动时间：", new Date().toLocaleTimeString());
+
+  try {
+    // 执行并发请求
+    const results = await multiRequest(testUrls, maxConcurrent);
+    // 输出最终结果
+    console.log("\n===== 所有请求完成 =====");
+    console.log("最终结果（按URL顺序）：", results);
+  } catch (err) {
+    console.error("测试失败：", err);
+  }
+})();
+
+```
+
+### 字节面试原题 - 带并发限制的异步调度器Scheduler
+
+```js
+class Scheduler {
+  constructor(limit) {
+    this.limit = limit;
+    this.tasks = [];
+    this.doing = 0;
+  }
+  add(time, name) {
+    this.tasks.push([time, name]);
+  }
+  async next() {
+    if (this.tasks.length <= 0) {
+      return;
+    }
+    const [time, name] = this.tasks.shift();
+    await new Promise((resolve) => {
+      setTimeout(() => {
+        console.log(name, Date.now());
+        resolve();
+      }, time);
+    });
+    this.next();
+  }
+  start() {
+    for (let i = 0; i < this.tasks.length; i++) {
+      this.next();
+    }
+  }
+}
+const scheduler = new Scheduler(2);
+const addTask = (time, name) => {
+  scheduler.add(time, name);
+};
+
+addTask(1000, "1"); // 1000ms后输出1
+addTask(500, "2"); // 500ms后输出2
+addTask(600, "3"); // 1100ms后输出3
+addTask(400, "4"); // 1400ms后输出4
+scheduler.start();
+
+```
 
 
-### 并发限制request池
+
+
+
+### 并发限制request池(splice写法)
 
 ```js
 function request(url){
@@ -1994,7 +2178,7 @@ for(let i=0;i<max;i++){
 
 
 
-###### 带并发限制的异步调度器Scheduler
+### 带并发限制的异步调度器Scheduler(splice写法)
 
 ```js
 class Scheduler{
@@ -2051,7 +2235,7 @@ addTask(400,'4')
 
 
 
-###### LazyMan
+### LazyMan
 
 ```js
 class LazyManClass {
