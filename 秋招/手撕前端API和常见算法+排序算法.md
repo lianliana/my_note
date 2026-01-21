@@ -1929,7 +1929,7 @@ Promise.all = function(promiseArr) {
 ```js
 Promise.race = function(promiseArr) {
     return new Promise((resolve, reject) => {
-        promiseArr.forEach(p => {
+        promiseArr?.forEach(p => {
             Promise.resolve(p).then(val => {
                 resolve(val)
             }, err => {
@@ -1949,7 +1949,7 @@ Promise.race = function(promiseArr) {
 Promise.any = function(promiseArr) {
     let index = 0
     return new Promise((resolve, reject) => {
-        if (promiseArr.length === 0) return 
+        if (promiseArr.length === 0) return reject(new Error("AggregateError"))
         promiseArr.forEach((p, i) => {
             Promise.resolve(p).then(val => {
                 resolve(val)
@@ -1971,30 +1971,39 @@ Promise.any = function(promiseArr) {
 ###### Promise.allSettled
 
 ```js
-Promise.allSettled = function(promiseArr) {
-    let result = []
-    return new Promise((resolve, reject) => {
-        promiseArr.forEach((p, i) => {
-            Promise.resolve(p).then(val => {
-                result.push({
-                    status: 'fulfilled',
-                    value: val
-                })
-                if (result.length === promiseArr.length) {
-                    resolve(result) 
-                }
-            }, err => {
-                result.push({
-                    status: 'rejected',
-                    reason: err
-                })
-                if (result.length === promiseArr.length) {
-                    resolve(result) 
-                }
-            })
-        })  
-    })   
-}
+Promise.allSettled = function (promiseArr) {
+  const res = [];
+  let count = 0;
+  return new Promise((resolve, reject) => {
+    if (!promiseArr?.length) {
+      return resolve(res);
+    }
+    promiseArr.forEach((promise, index) => {
+      Promise.resolve(promise).then(
+        (value) => {
+          res[index] = {
+            status: "fulfilled",
+            value,
+          };
+          count++;
+          if (count === promiseArr.length) {
+            resolve(res);
+          }
+        },
+        (err) => {
+          res[index] = {
+            status: "rejected",
+            reason: err,
+          };
+          count++;
+          if (count === promiseArr.length) {
+            resolve(res);
+          }
+        }
+      );
+    });
+  });
+};
 
 ```
 
@@ -2696,6 +2705,7 @@ body{
 ##### 冒泡排序
 
 ```js
+//平均 - O(n^2) 最差 - O(n^2) 
 function bubbleSort(arr){
     for(let i=0;i<arr.length;i++){
         let mark = true //优化  
@@ -2846,6 +2856,53 @@ function merge(left,right){
 ##### 快速排序
 
 ```js
+// 快排保证O(NlogN)的从小到大排序写法
+var sortArray = function (nums) {
+  function quickSort(nums, left, right) {
+    // 优化1 保证有序的数组直接能返回
+    let ordered = true;
+    for (let i = left; i <= right - 1; i++) {
+      if (nums[i] > nums[i + 1]) {
+        ordered = false;
+      }
+    }
+    if (ordered) {
+      return false;
+    }
+    const index = partition(nums, left, right);
+    quickSort(nums, left, index - 1);
+    quickSort(nums, index + 1, right);
+  }
+  function partition(nums, left, right) {
+    // 优化2 考虑随机选基准 保证随机基准 尽量二分
+    const index = left + Math.floor(Math.random() * (right - left + 1));
+    const value = nums[index];
+    [nums[left], nums[index]] = [nums[index], nums[left]];
+    let i = left + 1;
+    let j = right;
+    // 优化3 如果输入都是相同的元素，也要尽量二分
+    while (true) {
+      while (i <= j && nums[i] < value) {
+        i++;
+      }
+      while (i <= j && nums[j] > value) {
+        j--;
+      }
+      if (i >= j) {
+        break;
+      }
+      [nums[i], nums[j]] = [nums[j], nums[i]];
+      i++;
+      j--;
+    }
+    [nums[j], nums[left]] = [nums[left], nums[j]];
+    return j;
+  }
+  quickSort(nums, 0, nums.length - 1);
+  return nums
+};
+
+// 平均 - O(nlogn) 最差 - O(n^2)
 function quickSort(arr,begin,end){
     if(begin>end){
         return arr
@@ -2888,6 +2945,7 @@ function quickSort(arr,begin,end){
     quickSort(arr,left+1,end)
     return arr
 }
+
 ```
 
 
@@ -2968,6 +3026,7 @@ function radixSort(nums){
 ##### 堆排序
 
 ```js
+//平均 - O(n+k) 最差 - O(n^2)
 function heapSort(arr){
     buildHeap(arr)
     //终止条件i>0
@@ -3020,46 +3079,42 @@ function adjustHeap(arr,i,len){
 参考文献：https://leetcode-cn.com/problems/kth-largest-element-in-an-array/solution/xie-gei-qian-duan-tong-xue-de-ti-jie-yi-kt5p2/
 
 ```js
- // 整个流程就是上浮下沉
-var findKthLargest = function(nums, k) {
-   let heapSize=nums.length
-    buildMaxHeap(nums,heapSize) // 构建好了一个大顶堆
-    // 进行下沉 大顶堆是最大元素下沉到末尾
-    for(let i=nums.length-1;i>=nums.length-k+1;i--){
-        swap(nums,0,i)
-        --heapSize // 下沉后的元素不参与到大顶堆的调整
-        // 重新调整大顶堆
-         maxHeapify(nums, 0, heapSize);
-    }
-    return nums[0]
-   // 自下而上构建一颗大顶堆
-   function buildMaxHeap(nums,heapSize){
-     for(let i=Math.floor(heapSize/2)-1;i>=0;i--){
-        maxHeapify(nums,i,heapSize)
-     }
-   }
-   // 从左向右，自上而下的调整节点
-   function maxHeapify(nums,i,heapSize){
-       let l=i*2+1
-       let r=i*2+2
-       let largest=i
-       if(l < heapSize && nums[l] > nums[largest]){
-           largest=l
-       }
-       if(r < heapSize && nums[r] > nums[largest]){
-           largest=r
-       }
-       if(largest!==i){
-           swap(nums,i,largest) // 进行节点调整
-           // 继续调整下面的非叶子节点
-           maxHeapify(nums,largest,heapSize)
-       }
-   }
-   function swap(a,  i,  j){
-        let temp = a[i];
-        a[i] = a[j];
-        a[j] = temp;
-   }
+/**
+ * @param {number[]} nums
+ * @param {number} k
+ * @return {number}
+ */
+var findKthLargest = function (nums, k) {
+  let heapSize = nums.length;
+  buildHeap(nums, heapSize);
+  for (let i = nums.length - 1; i > nums.length - k; i--) {
+    [nums[0], nums[i]] = [nums[i], nums[0]];
+    adjustHeap(nums, 0, --heapSize);
+  }
+  return nums[0]
 };
+
+var buildHeap = function (nums, heapSize) {
+  for (let i = Math.floor(heapSize / 2 - 1); i >= 0; i--) {
+    adjustHeap(nums, i, heapSize);
+  }
+};
+
+var adjustHeap = function (nums, i, heapSize) {
+  let largestIndex = i;
+  let left = 2 * i + 1;
+  let right = 2 * i + 2;
+  if (left < heapSize && nums[left] > nums[largestIndex]) {
+    largestIndex = left;
+  }
+  if (right < heapSize && nums[right] > nums[largestIndex]) {
+    largestIndex = right;
+  }
+  if (largestIndex !== i) {
+    [nums[largestIndex], nums[i]] = [nums[i], nums[largestIndex]];
+    adjustHeap(nums, largestIndex, heapSize);
+  }
+};
+
 ```
 
