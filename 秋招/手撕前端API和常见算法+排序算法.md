@@ -340,6 +340,20 @@ let data = [
     {id: 6, pid: 2, text: 'xxx-2-6'}
 ];
 
+// 递归写法
+function buildTree(data, root) {
+  const children = data.filter(item => item.pid === root.id)
+  if(children.length > 0){
+    root.children = children
+    children.forEach(chid => {
+      buildTree(data, chid)
+    });
+  }
+  return root
+}
+const root = JSON.parse(JSON.stringify(data.find((item) => item.pid === 0)));
+
+// 迭代写法
 let obj ={}
 for(let i=0;i<data.length;i++){
     let item = data[i]
@@ -1539,15 +1553,20 @@ return bind
 ##### 实现new关键字
 
 ```js
-function objectFactory() {
-    var obj = new Object()
-    Constructor = [].shift.call(arguments);
-    obj.__proto__ = Constructor.prototype;
-    var ret = Constructor.apply(obj, arguments);
-    // ret || obj 这里这么写考虑了构造函数显示返回 null 的情况
-    return typeof ret === 'object' ? ret || obj : obj;
-};
+function myNew(constructor, ...args) {
+  // 创建一个新的空对象
+  const newObj = {};
 
+  // 将新对象的原型链接到构造函数的原型对象
+  Object.setPrototypeOf(newObj, constructor.prototype);
+
+  // 将构造函数的作用域赋给新对象，并执行构造函数
+  const result = constructor.apply(newObj, args);
+
+  // 如果构造函数有显式返回一个对象，则返回该对象；否则返回新对象
+  return typeof result === 'object' && result !== null ? result : newObj;
+}
+ 
 ```
 
 
@@ -2247,6 +2266,74 @@ addTask(400,'4')
 ### LazyMan
 
 ```js
+// Promise写法
+class LazyMan {
+  constructor(name) {
+    this.name = name;
+    this.queue = [];
+    this.queue.push(()=>{
+      console.log(`Hi! This is ${name}!`)
+    })
+    setTimeout(async () => {
+      while (this.queue.length > 0) {
+        const task = this.queue.shift();
+        await task();
+      }
+    }, 0);
+    return this;
+  }
+  sleep(time) {
+    this.queue.push(() => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve();
+          console.log(`Wake up after ${time / 1000}`);
+        }, time);
+      });
+    });
+    return this;
+  }
+  eat(food) {
+    this.queue.push(() => {
+      console.log(`Eat ${food}~`);
+    });
+    return this;
+  }
+  sleepFirst(time){
+    this.queue.unshift(() => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve();
+          console.log(`Wake up after ${time / 1000}`);
+        }, time);
+      });
+    });
+    return this;
+  }
+}
+
+new LazyMan("Hank").sleep(10000).eat("dinner");
+// Hi! This is Hank!
+//等待10秒..
+// Wake up after 10
+// Eat dinner~
+
+// new LazyMan("Hank").eat("dinner").eat("supper");
+// Hi This is Hank!
+// Eat dinner~
+// Eat supper~
+
+new LazyMan("Hank").sleepFirst(5000).eat("supper");
+//等待5秒
+// Wake up after 5
+// Hi This is Hank!
+// Eat supper
+```
+
+
+
+```js
+// next函数写法
 class LazyManClass {
   constructor(name) {
     this.name = name
@@ -2314,7 +2401,6 @@ new LazyMan('Hank').sleepFirst(5).eat('supper')
 // Wake up after 5
 // Hi This is Hank!
 // Eat supper
-
 ```
 
 
