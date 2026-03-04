@@ -377,6 +377,52 @@ console.log(res);
 
 
 
+### 数组转树形结构变种
+
+```js
+let data = [
+    {id: 1, pid: 0, text: 'xxx'},
+    {id: 2, pid: 1, text: 'xxx-2'},
+    {id: 3, pid: 1, text: 'xxx-3'},
+    {id: 4, pid: 0, text: 'xxx-2-4'},
+];
+
+// arrToTree(data)期望输出
+let res = [
+    {id: 1, pid: 0, text: 'xxx', children: [{id: 2, pid: 1, text: 'xxx-2'},
+                                            {id: 3, pid: 1, text: 'xxx-3'}]},
+    {id: 4, pid: 0, text: 'xxx-2-4'},
+];
+
+
+function arrToTree(list, rootPid = 0) {
+  const map = new Map();
+  const res = [];
+
+  // 1）先把所有节点建索引，并初始化 children
+  for (const item of list) {
+    map.set(item.id, { ...item, children: [] });
+  }
+
+  // 2）再把节点挂到父节点上
+  for (const item of list) {
+    const node = map.get(item.id);
+    if (item.pid === rootPid) {
+      res.push(node);
+    } else {
+      const parent = map.get(item.pid);
+      if (parent) parent.children.push(node);
+    }
+  }
+
+  return res;
+}
+```
+
+
+
+
+
 ### 树转数组
 
 ```js
