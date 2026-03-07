@@ -591,42 +591,88 @@ const checkStatus = {
     },
   ]
   
-  function mark(unmarkData, markIDs) {
-      dfs(unmarkData)
-      function dfs(nodes){
-          let children = []
-          for(let i=0;i<nodes.length;i++){
-              let node = nodes[i]
-              if(markIDs.includes(node.id)){
-                  children.push(node.id)
-                  node.status = checkStatus.all
-                  let arr = node.children 
-                  let index = 0
-                  while(index<arr.length){
-                      let temp = arr[index]
-                      index++
-                      temp.status = checkStatus.all
-                      if(temp.children){
-                          arr.push(...temp.children)
-                      }
-                  }
-              }
-              let mychildren = []
-              if(node.children){
-                  mychildren = dfs(node.children)
-              }
-              if(mychildren.length == node.children){
-                  node.status = checkStatus.all
-              }else if(mychildren.length>0){
-                  node.status = checkStatus.part
-              }
-          }
-          return children
-      }
-  }
-markIDs = ['1-1']
-mark(unmarkData,markIDs)
-console.dir(unmarkData)
+/** 勾选状态定义 */
+const checkStatus = {
+    none: 0,    // 所有子节点均未勾选
+    part: 1,    // 部分子节点勾选
+    all: 2      // 所有子节点均勾选
+};
+
+/** 需要处理的数据 */
+const unmarkData = [
+    {
+        id: '1',
+        name: '组织1',
+        status: checkStatus.none,
+        children: [
+            {
+                id: '1-1',
+                name: '组织1 - 子组织1',
+                status: checkStatus.none,
+                children: [
+                    {
+                        id: '1-1-1',
+                        name: '组织1 - 子组织1 - 孙子组织1',
+                        status: checkStatus.none,
+                    },
+                ],
+            },
+            {
+                id: '1-2',
+                name: '组织1 - 子组织2',
+                status: checkStatus.none,
+            },
+        ],
+    },
+];
+
+/**
+ * 标记树形数据的勾选状态
+ * @param {Array} tree 树形数据
+ * @param {Array} checkedIds 勾选的ID数组
+ * @returns {Array} 标记后的树形数据
+ */
+function markCheckStatus(tree, checkedIds) {
+    // 递归遍历并标记节点状态
+    function traverse(node) {
+        // 1. 处理叶子节点（无children）
+        if (!node.children || node.children.length === 0) {
+            node.status = checkedIds.includes(node.id) ? checkStatus.all : checkStatus.none;
+            return node.status;
+        }
+
+        // 2. 递归处理子节点，收集子节点的状态
+        const childStatusList = [];
+        node.children.forEach(child => {
+            childStatusList.push(traverse(child));
+        });
+
+        // 3. 根据子节点状态更新当前节点状态
+        const hasAll = childStatusList.every(status => status === checkStatus.all);
+        const hasNone = childStatusList.every(status => status === checkStatus.none);
+        
+        if (hasAll) {
+            node.status = checkStatus.all;
+        } else if (hasNone) {
+            node.status = checkStatus.none;
+        } else {
+            node.status = checkStatus.part;
+        }
+
+        return node.status;
+    }
+
+    // 遍历根节点
+    tree.forEach(node => traverse(node));
+    return tree;
+}
+
+// ========== 测试用例 ==========
+// 用例1：勾选 ['1-1', '1-1-1']
+console.log('用例1结果：', JSON.stringify(markCheckStatus(JSON.parse(JSON.stringify(unmarkData)), ['1-1', '1-1-1']), null, 2));
+
+// 用例2：勾选 ['1-1-1']
+console.log('用例2结果：', JSON.stringify(markCheckStatus(JSON.parse(JSON.stringify(unmarkData)), ['1-1-1']), null, 2));
   
 ```
 
