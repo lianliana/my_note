@@ -1,5 +1,22 @@
 ### 前端算法
 
+
+
+### 总结解法
+
+- 滑动窗口
+- 贪心
+- dfs/bfs
+- dp
+- 栈
+- 双指针/前后遍历
+- 二分法
+- 快慢指针
+- 前缀和
+- 回溯法
+
+
+
 ##### [剑指 Offer II 087. 复原 IP ](https://leetcode-cn.com/problems/0on3uN/)
 
 ```js
@@ -1681,24 +1698,29 @@ function instanceOf (left,right){
 ##### 实现Object.create
 
 ```js
-Object.create2 = function(proto, propertyObject = undefined) {
-    if (typeof proto !== 'object' && typeof proto !== 'function') {
-        throw new TypeError('Object prototype may only be an Object or null.')
-    if (propertyObject == null) {
-        new TypeError('Cannot convert undefined or null to object')
+Object.m ycreate = function(proto, defineProperties) {
+    if ( typeof proto !== 'object' && typeof proto !== 'function' ) {
+      throw new TypeError(`Object prototype may only be an Object or null: ${proto}`)
     }
-    function F() {}
-    F.prototype = proto //关键 让obj的__proto__指向proto
-    const obj = new F()
-    if (propertyObject != undefined) {
-        Object.defineProperties(obj, propertyObject)
+    if ( defineProperties === null ) {
+      throw new TypeError('Cannot convert undefined or null to object')
     }
-    if (proto === null) {
-        // 创建一个没有原型对象的对象，Object.create(null)
-        obj.__proto__ = null
+  
+    // 定义新对象 
+      const obj = {}
+    
+      // 设置原型
+      // obj.__proto__ = proto // 不建议这么做了
+      // 通常，应该使用 Object.setPrototypeOf() 方法来设置对象的原型。
+      // 因为 Object.prototype.__proto__ 访问器已被弃用。
+       Object.setPrototypeOf(obj, proto) // 建议使用setPrototypeOf设置原型
+ 
+    if ( defineProperties !== undefined ) {
+      Object.defineProperties(obj, defineProperties)
     }
     return obj
-}
+  }
+
 
 ```
 
