@@ -1749,7 +1749,7 @@ Object.assign2 = function(target, ...source) {
 
 
 
-##### 实现JSON.stringify  00
+##### 实现JSON.stringify
 
 ```js
 function jsonStringify(data){
