@@ -1659,6 +1659,45 @@ return bind
 
 
 
+### 实现loadsh.get
+
+```js
+function get(target, path, defaultValue) {
+  // 1. 把 path 统一转成数组形式
+  // 支持 'a.b.c' 、 'a[0].b' 、['a', '0', 'b']
+  const paths = Array.isArray(path)
+    ? path
+    : path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean)
+
+  // 2. 一层层遍历取值
+  let result = target
+  for (const key of paths) {
+    // 中途遇到 null/undefined 直接返回默认值
+    if (result == null) return defaultValue
+    result = result[key]
+  }
+
+  // 3. 最终结果不存在就返回默认值
+  return result !== undefined ? result : defaultValue
+}
+
+// 测试
+const obj = {
+  a: {
+    b: [1, 2, { c: 3 }]
+  }
+}
+
+console.log(get(obj, 'a.b.2.c'))        // 3
+console.log(get(obj, 'a.b[0]'))         // 1
+console.log(get(obj, 'x.y.z', '默认'))  // 默认
+console.log(get(null, 'a.b', '默认'))   // 默认
+```
+
+
+
+
+
 ##### 实现new关键字
 
 ```js
@@ -2282,6 +2321,107 @@ scheduler.start();
 
 
 
+### 使用Promise.race+all实现并发
+
+```js
+// https://juejin.cn/post/7506877640176418850
+/**
+ * 限制并发数量的异步任务执行器
+ * @param {Array<Function>} tasks 返回Promise的任务数组
+ * @param {number} limit 并发限制数
+ * @returns {Promise<Array>} 所有任务结果的数组
+ */
+async function runWithConcurrency(tasks, limit = 3) {
+  // 存储所有任务的Promise
+  const results = [];
+  // 使用Set来追踪正在执行的任务
+  const executing = new Set();
+  
+  for (const task of tasks) {
+    // 如果达到并发限制，等待任意一个任务完成
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+    
+    // 创建并执行新任务
+    const p = task()
+      .then((res) => {
+        executing.delete(p); // 任务完成，从执行集合中移除
+        return res;
+      })
+      .catch((err) => {
+        executing.delete(p); // 即使失败也要移除
+        throw err;
+      });
+    
+    executing.add(p); // 添加到执行集合
+    results.push(p);  // 存储到结果数组
+  }
+  
+  // 等待所有任务完成
+  return Promise.all(results);
+}
+
+```
+
+
+
+
+
+### 字节面试异步调度器Scheduler2
+
+```js
+class Scheduler {
+  constructor(max) {
+    this.max = max;
+    this.count = 0; // 用来记录当前正在执行的异步函数
+    this.queue = new Array(); // 表示等待队列
+  }
+  async add(promiseCreator) {
+    /*
+        此时count已经满了，不能执行本次add需要阻塞在这里，将resolve放入队列中等待唤醒,
+        等到count<max时，从队列中取出执行resolve,执行，await执行完毕，本次add继续
+        */
+    if (this.count >= this.max) {
+      await new Promise((resolve, reject) => this.queue.push(resolve));
+    }
+
+    this.count++;
+    let res = await promiseCreator();
+    this.count--;
+    if (this.queue.length) {
+      // 依次唤醒add
+      // 若队列中有值，将其resolve弹出，并执行
+      // 以便阻塞的任务，可以正常执行
+      this.queue.shift()();
+    }
+    return res;
+  }
+}
+
+const timeout = time =>
+  new Promise(resolve => {
+    setTimeout(resolve, time);
+  });
+
+const scheduler = new Scheduler(2);
+
+const addTask = (time, order) => {
+  //add返回一个promise，参数也是一个promise
+  scheduler.add(() => timeout(time)).then(() => console.log(order));
+};
+  
+  addTask(1000, '1');
+  addTask(500, '2');
+  addTask(300, '3');
+  addTask(400, '4');
+  
+// output: 2 3 1 4
+
+```
+
+
+
 
 
 ### 并发限制request池(splice写法)
@@ -2560,6 +2700,37 @@ hardMan('潘潘').restFirst(3).study('敲码')
 ```
 
 
+
+### hardMan变种
+
+```js
+class U {
+ constructor() {
+     this.promise = Promise.resolve();
+ }
+
+ console(val) {
+     this.promise = this.promise.then(() => {
+        console.log(val); 
+     });
+     return this;
+ }
+
+ setTimeout(wait) {
+     this.promise = this.promise.then(() => {
+         return new Promise(resolve => {
+             setTimeout(() => {
+                 resolve()
+             }, wait);
+         });
+     })
+     return this;
+ }
+}
+const u = new U()
+// 实现这个
+u.console('breakfast').setTimeout(3000).console('lunch').setTimeout(3000).console('dinner')
+```
 
 
 
