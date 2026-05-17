@@ -206,7 +206,156 @@ setTimeout(async () => {
 
 ---
 
-## 6) VSCode 调试小贴士（你之前遇到的坑）
+## 6) Webpack 完整构建阶段与 Hooks 全览
+
+### 6.1 四个大阶段
+
+```
+初始化 → 构建模块图（Make）→ 生成 chunk（Seal）→ 输出文件（Emit）
+```
+
+### 6.2 完整构建流程（Compiler 视角 + Compilation 内部展开）
+
+compiler 是最顶层对象，它只看到 `make` 开始和 `afterCompile` 结束。Make 阶段和 Seal 阶段都藏在这两个 hook 之间，属于 compilation 内部发生的事。
+
+```
+compiler 层（全局生命周期）
+│
+├─ environment              环境变量准备好
+├─ entryOption              entry 配置解析完
+├─ afterPlugins             所有插件 apply() 执行完
+├─ afterResolvers           resolver 初始化完
+│
+├─ beforeRun / run          开始读取文件
+│
+├─ normalModuleFactory      模块工厂创建好 ← 在这里拿到 factory 实例挂 afterResolve
+│                           （先于 compilation 创建，因为 compilation 需要工厂作为参数）
+├─ contextModuleFactory     context 模块工厂创建好
+│
+├─ beforeCompile            compilation 创建前
+├─ compile                  compilation 创建中
+├─ thisCompilation          compilation 创建好（内部使用）
+├─ compilation              compilation 创建好（插件推荐在这里拿 compilation 实例）
+│
+├─ make ◀────────────────── Make 阶段开始（compilation 内部）
+│    │
+│    │  ── Make 阶段：递归构建模块图 ──
+│    │
+│    │  每遇到一个 import 语句，normalModuleFactory 处理一次：
+│    │
+│    ├─ [normalModuleFactory] beforeResolve    解析前，可修改 request
+│    ├─ [normalModuleFactory] afterResolve     ← NamedModulesPlugin 在这里收集需要改名的包
+│    │       info.rawRequest  = 'react'（你写的包名）
+│    │       info.userRequest = '/node_modules/react/index.js'（真实路径）
+│    ├─ [normalModuleFactory] createModule     创建 Module 对象
+│    ├─ [normalModuleFactory] module           Module 对象创建完，交给 compilation 管理
+│    │
+│    │  上面四步每个 import 触发一次，所有 import 处理完后：
+│    │
+│    ├─ [compilation] buildModule       一个模块开始构建（Loader 在这里执行）
+│    ├─ [compilation] succeedModule     一个模块构建成功
+│    ├─ [compilation] failedModule      一个模块构建失败
+│    ├─ [compilation] finishModules     所有模块构建完成
+│    │
+│    │  ── Seal 阶段：封装、优化、生成产物 ──
+│    │
+│    ├─ [compilation] seal              开始封装（不再接受新模块）
+│    ├─ [compilation] optimizeDependencies   优化模块依赖
+│    ├─ [compilation] beforeChunks / afterChunks  chunk 生成前后
+│    ├─ [compilation] optimizeModules   优化模块（tree-shaking 等）
+│    ├─ [compilation] optimizeChunks   优化 chunk ← splitChunks 在这里执行
+│    │
+│    ├─ [compilation] optimizeModuleIds  ← NamedModulesPlugin 在这里改模块 ID
+│    ├─ [compilation] afterOptimizeModuleIds
+│    ├─ [compilation] optimizeChunkIds
+│    ├─ [compilation] afterOptimizeChunkIds
+│    │
+│    ├─ [compilation] beforeHash / afterHash   生成文件 hash
+│    └─ [compilation] afterSeal         封装结束
+│
+├─ afterCompile ◀─────────── Make + Seal 全部结束
+│
+├─ shouldEmit               决定是否输出文件
+├─ emit                     开始往磁盘写文件 ← addSubgameTag 在这里写空的 subgame 文件
+├─ afterEmit                文件写完
+│
+└─ done                     整个构建结束 ← NamedModulesPlugin 在这里做改名数量校验
+```
+
+**关键理解：**
+
+- compiler 只看到 `make` 和 `afterCompile` 两个节点，中间所有细节都是 compilation 内部的事
+- Make 阶段：从 entry 出发递归解析所有 import，构建完整的模块依赖图
+- Seal 阶段：模块图确定后，做优化、分配 ID、生成代码，不再接受新模块
+- **模块 ID 在 Seal 末尾才分配**，因为 Make 阶段 tree-shaking 可能删模块，Seal 之后模块集合才稳定
+
+**为什么 normalModuleFactory 先于 compilation 创建？**
+
+compilation 创建时需要把 normalModuleFactory 作为参数传进去，所以工厂必须先造好再造 compilation。
+
+### 6.4 第三层：NormalModuleFactory Hooks（模块解析过程）
+
+每个 `import` 语句触发一次，负责把 import 路径解析成真实文件。
+
+```
+import 'react' 被发现
+    │
+    ├─ beforeResolve    解析前，可以修改 request
+    ├─ resolve          开始解析路径：'react' → '/node_modules/react/index.js'
+    ├─ afterResolve     ← NamedModulesPlugin 在这里收集需要改名的包
+    │    info.rawRequest  = 'react'（你写的）
+    │    info.userRequest = '/node_modules/react/index.js'（真实路径）
+    ├─ createModule     创建模块对象
+    └─ module           模块对象创建完成
+```
+
+### 6.5 第四层：Module Hooks（单个模块的构建过程）
+
+```
+模块对象创建
+    │
+    ├─ build            开始构建这个模块，Loader 在这里执行
+    ├─ buildModule      构建开始
+    ├─ succeedModule    构建成功
+    └─ failedModule     构建失败
+```
+
+### 6.6 为什么 normalModuleFactory 要套两层 tap
+
+```javascript
+// 第一层：等 webpack 创建好 normalModuleFactory 这个工厂对象
+compiler.hooks.normalModuleFactory.tap('xxx', (factory) => {
+    // 第二层：拿到工厂实例后，往生产线上挂质检探头
+    factory.hooks.afterResolve.tap('xxx', handleAfterResolve)
+})
+```
+
+`normalModuleFactory` 不是一个固定对象，每次构建 webpack 都会新建一个，所以必须先等第一层触发拿到实例，再往它上面挂第二层监听。不能跳过第一层直接挂 `afterResolve`，因为此时工厂对象还不存在。
+
+### 6.7 tap / tapAsync / tapPromise 的区别
+
+```javascript
+hook.tap('name', (arg) => { })                        // 同步，直接返回
+hook.tapAsync('name', (arg, callback) => { callback() }) // 异步，手动调 callback
+hook.tapPromise('name', (arg) => Promise.resolve())   // 异步，返回 Promise
+```
+
+webpack 会等 `tapAsync` / `tapPromise` 的回调完成后才继续下一步，适合需要做 IO 操作的场景。
+
+### 6.8 这个项目（tutor-box）用到的 hooks 汇总
+
+| Hook | 所在层 | 时机 | 谁用 | 做什么 |
+|------|--------|------|------|--------|
+| `compiler.normalModuleFactory` | Compiler | 模块工厂创建好 | NamedModulesPlugin（Host） | 拿到工厂实例，挂 afterResolve |
+| `factory.afterResolve` | NormalModuleFactory | 每个 import 解析完 | NamedModulesPlugin（Host） | 收集需要改名的包存入 modlueIdToPathMap |
+| `compilation.optimizeModuleIds` | Compilation | 所有模块 ID 分配完 | NamedModulesPlugin（Host） | sharedModule → 包名 ID；其他 → 加 $$app. 前缀 |
+| `compiler.done` | Compiler | 整个构建结束 | NamedModulesPlugin（Host） | 校验登记数 === 改名数，不等则报错 |
+| `compiler.emit` | Compiler | 开始写文件到磁盘 | addSubgameTag（子应用） | 追加空的 subgame 标识文件 |
+| `compilation.optimizeModuleIds` | Compilation | 同上 | NamedModulePlugin（子应用） | 给所有模块 ID 加 `$$app.bundleId.version/` 前缀 |
+
+---
+
+## 7) VSCode 调试小贴士（你之前遇到的坑）
 
 你之前遇到过：VSCode 启动调试时用旧 Node（v14）导致 webpack-cli 报 `Cannot find module 'node:events'`。
 
