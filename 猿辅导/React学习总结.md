@@ -1,186 +1,197 @@
-# React Fiber / Hooks 学习总结
+# React 学习总结
 
-> 基于我们这次阅读 `react-reconciler`（commit：`1fb18e22ae66f...`）的讨论整理。
-
----
-
-### 1. Fiber 是什么？为什么需要 `tag`（Fiber 类型）
-
-- **Fiber**：React 在 reconciler 内部用于表示“工作单元/节点”的数据结构；一棵 React 树会对应一棵 Fiber 树。
-- **`tag`（WorkTag）**：用来标记 Fiber 代表哪一类“节点/组件”，从而在 `beginWork`/`completeWork` 等阶段走不同逻辑分支。
-
-常见 `tag`（直观理解）：
-- **`FunctionComponent`**：函数组件（执行函数得到 children）
-- **`ClassComponent`**：类组件
-- **`HostComponent`**：宿主环境元素节点（DOM 渲染器里是 `<div>`、`<span>` 等）
-- **`HostText`**：宿主环境文本节点（DOM 文本）
-- **`HostRoot`**：根
-- **`Fragment` / `ForwardRef` / `MemoComponent` / `SuspenseComponent`**：对应 React 语法/能力的内部节点
+> React 应用层与版本演进相关的总结。Fiber 内核源码相关的内容见 `ReactFiber学习总结.md`。
 
 ---
 
-### 2. `HostComponent` 是什么？
+## 目录
 
-在 **React DOM** 渲染器里：
-- 你写的 `<div />`、`<span />` 等 **原生标签** 对应的 Fiber，就是 **`HostComponent`**。
-- `HostComponent` 的 `type` 通常是字符串（如 `'div'`），props 是 `pendingProps/memoizedProps`。
-
-对比：
-- **`FunctionComponent`**：没有真实 DOM 实例；它在 render 阶段会“执行组件函数”，算出下一层 children。
-- **`HostComponent`**：对应真实宿主实例（DOM element），会在后续阶段创建/更新该实例。
+- [1. React 各版本演进对比](#1-react-各版本演进对比)
+- [2. useEvent / useMemoizedFn 模式：稳定引用 + 最新闭包](#2-useevent--usememoizedfn-模式稳定引用--最新闭包)
 
 ---
 
-### 3. render 阶段 vs commit 阶段：分别做什么？
+## 1. React 各版本演进对比
 
-可以把一次更新拆成两大段：
+> 从 React 15 到 React 19，每一代的核心变化与对应用层的实际影响。
 
-#### 3.1 render 阶段（可中断/可重试）
+### 1.1 总览表
 
-目标：**计算出下一棵 Fiber 树，以及“需要在提交时做哪些副作用”**。
+| 版本 | 发布时间 | 架构关键词 | 应用层关键能力 |
+|---|---|---|---|
+| **React 15** | 2016 | Stack Reconciler（递归、同步、不可中断） | `createClass`、ReactDOM 拆出 |
+| **React 16** | 2017 | **Fiber 架构**、双缓冲、可中断基础设施 | Error Boundaries、Fragments、Portals、新生命周期 |
+| **React 16.8** | 2019 | （架构沿用 16） | **Hooks 正式发布** |
+| **React 17** | 2020 | "无新特性"垫脚石 | 事件委托从 document 迁到 root；新 JSX Transform；逐步升级 |
+| **React 18** | 2022 | **Concurrent Rendering**、Lanes 模型、Flags 替代 effectList | `createRoot`、Automatic Batching、Transitions、Suspense for Data、Streaming SSR、5 个新 hooks |
+| **React 19** | 2024 | React Compiler（自动 memo）、Server Components 稳定 | Actions、`use`、`useOptimistic`、`useActionState`、ref as prop、Document Metadata |
 
-主要包含：
-- **`beginWork`（递）**：根据 Fiber 类型计算子节点（reconcile children）
-  - 函数组件：执行组件（含 hooks），得到 children，再 reconcile
-  - HostComponent：根据 children reconcile 出子 Fiber
-- **`completeWork`（归）**：为 Host 节点准备提交材料
-  - 可能会 **创建宿主实例**（例如创建 DOM element）
-  - 可能会把“子宿主节点”**先拼装到父宿主实例上**（`appendAllChildren`）
-  - 会计算 “更新 payload”、并通过 `effectTag` 标记需要在 commit 执行的动作（Update/Ref/Placement…）
+### 1.2 React 15 → 16：Stack Reconciler 到 Fiber
 
-> 注意：render 阶段即使创建了 DOM 实例，也只是“在内存里准备好”，**不等于已经插入真实页面**。
+#### Stack Reconciler 的问题
 
-#### 3.2 commit 阶段（不可中断，真正改外部世界）
+- 递归调和整棵树，**一旦开始必须跑完**
+- 大组件树更新时主线程被长时间占用，导致掉帧、输入卡顿
+- 浏览器无法插入高优先级任务（动画、用户交互）
 
-目标：**把 render 阶段算出来的变更一次性提交到宿主环境**。
+#### Fiber 解决了什么
 
-commit 会做的事不仅是“append 根”，还包括：
-- 插入（Placement：insert/append 到正确位置）
-- 更新（Update：commitUpdate、commitTextUpdate）
-- 删除（Deletion：removeChild + unmount/ref 清理）
-- Ref 设置/清理
-- 生命周期与 hooks effect（layout/passive）的卸载/安装
+- 把"递归调用栈"改成**链表 + 循环**：每个 Fiber 是一个工作单元，可以在两次任务之间被打断
+- **双缓冲**：`current` 树（已提交）与 `workInProgress` 树（构建中）并存，构建被打断也不影响 UI
+- **优先级调度**（雏形，叫 `expirationTime`）：高优更新可以打断低优渲染
+- 把更新过程切成 **render 阶段（可中断）+ commit 阶段（不可中断）**
 
----
+> **重要：Fiber 只是基础设施**。16 默认仍是同步行为，"真正能用上中断"要等到 18 的 Concurrent 模式。
 
-### 4. `effectTag` / `effectList` 是什么？为什么需要 effectList？
+#### 同时引入的应用层特性
 
-#### 4.1 `effectTag`（Fiber 上的 bitmask 标记）
+- **Error Boundaries**（`componentDidCatch`）：捕获子树渲染错误
+- **Fragments**（`<></>`）：组件可返回数组
+- **Portals**（`createPortal`）：把子树渲染到 DOM 外部位置
+- **新生命周期**：`getDerivedStateFromProps` / `getSnapshotBeforeUpdate`；废弃 `componentWillMount` 等"不安全"生命周期（为 Concurrent 铺路）
 
-每个 Fiber 有一个 `effectTag`（位掩码），表示 commit 阶段对该 Fiber 要做哪些副作用，比如：
-- `Placement`：需要插入/移动
-- `Update`：需要更新宿主实例
-- `Deletion`：需要删除
-- `Ref`：需要处理 ref
-- `Passive`：包含 useEffect（被动副作用）相关
+### 1.3 React 16.8：Hooks
 
-#### 4.2 `effectList`（`firstEffect/lastEffect/nextEffect` 单链表）
+- 函数组件第一次获得"持有状态"的能力
+- 核心 hooks：`useState` / `useEffect` / `useRef` / `useMemo` / `useCallback` / `useContext` / `useReducer` / `useLayoutEffect` / `useImperativeHandle` / `useDebugValue`
+- 底层实现：函数组件 Fiber 上的 `memoizedState` 维护一条 **Hook 单链表**（详见 `ReactFiber学习总结.md` 第 6 节）
+- 强制约束：**调用顺序必须一致**（不能在条件/循环里调）
 
-问题：commit 阶段如果为了找“有哪些 Fiber 有副作用”，再遍历整棵树会很慢。
+> 现在的 React 业务代码几乎都基于 Hooks，类组件进入"维护期"。
 
-解决：在 render 阶段的归过程（`completeUnitOfWork`）里，把有副作用的 Fiber **串成一条链表**：
-- `fiber.firstEffect`：子树里第一个带 effect 的 Fiber
-- `fiber.lastEffect`：子树里最后一个带 effect 的 Fiber
-- `fiber.nextEffect`：effectList 的 next 指针
+### 1.4 React 17：垫脚石版本（几乎无新 API）
 
-最终 rootFiber 上会拿到一条从 `root.firstEffect` 开始的单向链表，commit 阶段 **线性遍历 effectList** 即可处理所有副作用。
+虽然版本号 +1，但**几乎没有新特性**，专门为"渐进式升级"做底层调整：
 
-#### 4.3 mount 也需要 effectList
+| 变化 | 原因 |
+|---|---|
+| 事件委托：`document` → React root 节点 | 解决多版本 React 共存的事件冲突，方便微前端/局部升级 |
+| 新 JSX Transform（不再需要 `import React from 'react'`） | 编译器直接生成 `react/jsx-runtime` 调用，包体积更小 |
+| `useEffect` cleanup 改为异步执行 | 与浏览器绘制对齐，性能更好 |
+| 移除"事件池"（event pooling） | 让事件对象语义更符合直觉 |
 
-不是只有 update 才需要：
-- mount 时也要做 Placement、Ref、生命周期、useEffect/useLayoutEffect 等
-- update 时更明显，因为会混合 Update/Deletion/Placement(移动)/effect destroy&create 等
+> 一句话：**17 不是为了用户，是为了让你能放心升 18。**
 
----
+### 1.5 React 18：Concurrent Rendering 正式落地
 
-### 5. 一个直观例子：`<div><Child />hello</div>` 的首次 mount 怎么“挂上去”？
+最大的一代变化，所有 Concurrent Features **必须用 `createRoot` 才启用**：
 
-```jsx
-function Child() {
-  return <span>hi</span>;
-}
+```tsx
+import { createRoot } from 'react-dom/client'
+createRoot(container).render(<App />)
+```
 
-export default function App() {
-  return (
-    <div>
-      <Child />
-      hello
-    </div>
-  );
+#### 调度/渲染层
+
+| 特性 | 说明 |
+|---|---|
+| **Lanes 模型** | 取代旧 `expirationTime`，用 31 位 bitmask 表达"优先级车道"，支持并发处理多个优先级 |
+| **Flags 取代 effectList** | 副作用标记下沉到 Fiber 自身的 `flags` + `subtreeFlags`，commit 阶段按"子树位"决定是否进入。删除了 `firstEffect/nextEffect` 链表 |
+| **Automatic Batching** | setTimeout / Promise / 原生事件回调里的多个 setState 也会自动批处理（17 只在 React 事件里批） |
+| **Transitions** | `startTransition` / `useTransition` 标记非紧急更新，可被中断 |
+| **Suspense 增强** | 支持服务端、数据请求场景；fallback 显示更稳定 |
+| **Streaming SSR** | `renderToPipeableStream`，HTML 流式输出 + Selective Hydration |
+
+#### 新增 hooks
+
+| Hook | 作用 |
+|---|---|
+| `useId` | 生成跨服务端/客户端稳定的唯一 id（解决 SSR 水合 id 冲突） |
+| `useTransition` | 标记一组 state 更新为低优先级（不阻塞 UI） |
+| `useDeferredValue` | 让某个值"延迟跟上"，配合搜索框这种场景 |
+| `useSyncExternalStore` | 给外部数据源（如 Redux）接入 React 并发渲染的官方 API |
+| `useInsertionEffect` | 比 useLayoutEffect 更早执行，CSS-in-JS 库专用（普通业务别用） |
+
+#### Strict Mode 增强
+
+- 开发模式下，组件会被**故意 mount → unmount → mount**，验证你的代码能否承受重复挂载（为未来的 Offscreen API 铺路）
+- Effect 会被故意双调用，强化对副作用清理的检查
+
+### 1.6 React 19：Compiler + Actions + Server Components
+
+#### React Compiler（自动 memo）
+
+- 编译器在构建期自动给组件、回调、值添加 memoization
+- **理论上不再需要手写 `useMemo` / `useCallback` / `React.memo`**
+- 当前为可选（opt-in），通过 babel 插件启用
+- 这意味着第 2 节讨论的 `useEvent` / `useMemoizedFn` 模式，未来可能也被编译器消化掉
+
+#### Actions（表单 / 异步状态）
+
+```tsx
+function Form() {
+    const [error, submitAction, isPending] = useActionState(
+        async (_, formData) => {
+            try { await save(formData); return null }
+            catch (e) { return e.message }
+        },
+        null
+    )
+    return <form action={submitAction}>...</form>
 }
 ```
 
-粗略的 Fiber 形态：
-- `HostRoot`
-  - `HostComponent('div')`
-    - `FunctionComponent(Child)`
-      - `HostComponent('span')`
-        - `HostText("hi")`
-    - （文本 `"hello"` 可能被宿主层做 direct-text 优化，不一定单独建 HostText fiber，视实现路径而定）
+| 新 API | 作用 |
+|---|---|
+| `<form action={fn}>` | form 元素可直接绑定 async 函数 |
+| `useActionState` | 管理 action 的 pending / error / data 状态 |
+| `useFormStatus` | 表单子组件获取当前提交状态 |
+| `useOptimistic` | 乐观更新（提交时立刻显示预期结果） |
 
-流程要点：
-- render/beginWork：`div` reconcile 出 `Child`；`Child` 执行函数得到 `<span>` 子树
-- render/completeWork：创建 `<div>` 的 DOM 实例；把子树里终端 Host 节点（`span`/text）append 到 div 实例上
-- commit：根据 effectList 执行 Placement，把 `div`（以及其内部已经拼好的子树）插入容器
+#### `use` —— 可条件调用的 Hook
 
-关键点：**`Child` 自己不是 DOM，它只是产出 DOM 子树的中间层**。
+```tsx
+const data = use(promise)
+const theme = use(ThemeContext)
+```
 
----
+- 这是 React 第一个**允许条件调用**的 hook（打破"只能顶层调用"规则）
+- 让条件读 Context 成为可能
 
+#### ref 不再需要 forwardRef
 
+```tsx
+function MyInput({ ref, ...props }) {
+    return <input ref={ref} {...props} />
+}
+```
 
-### 6. Hooks：state hook vs effect hook 挂在哪？为什么要保证顺序？
+老写法 `React.forwardRef((props, ref) => ...)` 不再必要。
 
-#### 6.1 state/memo/ref 等 Hook：挂在 `fiber.memoizedState`（Hook 单链表）
+#### Server Components（RSC）稳定
 
-函数组件 Fiber 上的 `memoizedState` 保存一条 **Hook 单向链表**。
-- mount：每调用一个 hook，就创建一个 Hook 节点追加到链尾（O(1)，靠 `workInProgressHook` 指针）
-- update：按调用顺序从 `currentHook.next` 逐个取旧 Hook，对齐并产生新 Hook
+- 一类只在服务端运行、零客户端 JS 的组件
+- 可以直接 `await` 数据库 / 文件系统
+- 配合 Next.js App Router 已经在生产可用
 
-#### 6.2 effect（useEffect/useLayoutEffect）：两层结构
+#### 其他
 
-useEffect 相关的信息有两层：
-- **它作为 Hook 节点**：同样占据 `memoizedState` Hook 链表中的一个位置（保证“第 N 个 hook”可对齐）
-- **它的 Effect 列表**：同时会被 push 到 `fiber.updateQueue.lastEffect` 维护的一条 **effect 环形链表**，供 commit 快速遍历执行
+- **Document Metadata 自动 hoist**：组件里写 `<title>` / `<meta>` 会自动提到 `<head>`
+- **资源预加载 API**：`preload` / `preconnect` / `preinit`
+- **错误处理改进**：默认不再向 console 输出两份错误堆栈
 
-#### 6.3 为什么 effect 列表用环形？
+### 1.7 升级路径建议
 
-React 这里仅保存 `lastEffect`（尾指针）。
-用环形链表可以做到：
-- O(1) 追加
-- O(1) 拿到头：`firstEffect = lastEffect.next`
-- 遍历时天然回到起点结束（do/while）
+| 起点 | 终点 | 关键关注点 |
+|---|---|---|
+| 15 → 16 | 检查废弃的生命周期，迁移到新的 `getDerivedStateFromProps` 等 |
+| 16 → 17 | 几乎无破坏；注意事件委托位置变化（影响 e.stopPropagation 行为） |
+| 17 → 18 | `ReactDOM.render` → `createRoot`；检查 Strict Mode 双调用副作用；外部 store 改用 `useSyncExternalStore` |
+| 18 → 19 | ref 写法可简化；评估 React Compiler；新 Actions API 替代手写表单状态 |
 
-不用环形当然也能实现，但通常需要额外存 `firstEffect`（head）或引入更多分支处理。
+### 1.8 主线一句话
 
-#### 6.4 为什么 Hooks 必须保证调用顺序一致？
+> **15 是 React 的"成熟期"，16 是架构革命的"播种期"，17 是迁移工具的"工具期"，18 是并发能力的"收获期"，19 是编译时优化与全栈整合的"自动化期"。**
 
-因为 React 识别“这是哪个 hook”靠的是 **位置（第几个）**，不是名字。
-
-如果你在 update 时改变了调用顺序（比如把 hook 放进 if/for），就会导致“第 N 个 hook”对齐到错误的旧节点，从而：
-- `useState` 读到了原本属于 `useEffect` 的 hook 位
-- 或反过来 effect 读到了 state hook 位
-
-因此 Hooks 规则要求：
-- 只能在组件顶层调用
-- 不能放在条件/循环/嵌套函数里
-- 每次渲染调用顺序必须一致
+> 主线是：**让 React 从「同步递归渲染库」变成「能感知优先级、可中断、可恢复、能跨端协作」的并发 UI 运行时**。
 
 ---
 
-### 7. 你可以如何继续深入（可选路线）
-
-- 从 `ReactFiberWorkLoop.new.js` 的 `performUnitOfWork -> completeUnitOfWork` 走一遍，观察 effectList 如何被拼接
-- 看 `ReactFiberCompleteWork.new.js` 的 `HostComponent` 分支：创建实例、append children、`markUpdate/markRef`
-- 看 `ReactFiberCommitWork.new.js`：`commitPlacement/commitWork/commitHookEffectListMount` 如何真正触发 DOM 与 hooks effect
-
----
-
-### 8. useEvent / useMemoizedFn 模式：稳定引用 + 最新闭包
+## 2. useEvent / useMemoizedFn 模式：稳定引用 + 最新闭包
 
 > 源自项目 `packages/student-chat-utils/src/hooks/useEvent.ts` 的讨论。
 
-#### 8.1 `useCallback` 的两难
+### 2.1 `useCallback` 的两难
 
 ```typescript
 const fn = useCallback(() => doSomething(state), [state])
@@ -191,7 +202,7 @@ const fn = useCallback(() => doSomething(state), [state])
 
 「引用稳定」和「闭包最新」在 `useCallback` 里是**互斥**的。
 
-#### 8.2 useEvent 的实现拆解
+### 2.2 useEvent 的实现拆解
 
 ```typescript
 export function useEvent<T extends (...args: any[]) => any>(callback: T): T {
@@ -217,7 +228,7 @@ export function useEvent<T extends (...args: any[]) => any>(callback: T): T {
 外部 ──调用──> memoFn (永远是同一个) ──读取──> fnRef.current (每次渲染被覆盖) ──执行──> 最新闭包
 ```
 
-#### 8.3 为什么必须有 ③④（不能直接 `return fnRef.current`）
+### 2.3 为什么必须有 ③④（不能直接 `return fnRef.current`）
 
 如果只有 ①②、直接返回 `fnRef.current`：
 
@@ -227,7 +238,7 @@ export function useEvent<T extends (...args: any[]) => any>(callback: T): T {
 
 ③④ 用一个 stable 的"壳函数"把"最新 callback"包起来，外部抓的是壳，壳内部去查最新闭包。
 
-#### 8.4 关键认知：`ref.current` 不会触发重渲染
+### 2.4 关键认知：`ref.current` 不会触发重渲染
 
 | 东西 | 跨渲染是否相同 | 修改后是否触发重渲染 |
 |---|---|---|
@@ -237,7 +248,7 @@ export function useEvent<T extends (...args: any[]) => any>(callback: T): T {
 
 正因为 `ref.current` 是"**静默更新**"的，才能在渲染期间安心赋值而不形成死循环。"最新闭包"是**懒读取**，等下次有人调用 `memoFn()` 时才拿。
 
-#### 8.5 和 ahooks `useMemoizedFn` 的差异
+### 2.5 和 ahooks `useMemoizedFn` 的差异
 
 ahooks 源码（核心部分）：
 
@@ -275,9 +286,9 @@ return memoizedFn.current
    - `function + apply`：转发 `this`，更通用
    - 业务里 99% 用箭头函数 + 闭包，碰不到差异
 
-#### 8.6 useEvent 的适用边界（不是 useCallback 超集！）
+### 2.6 useEvent 的适用边界（不是 useCallback 超集！）
 
-##### 翻车场景 1：渲染期间调用
+#### 翻车场景 1：渲染期间调用
 
 ```tsx
 const process = useEvent(() => data.process())
@@ -288,7 +299,7 @@ const result = process()   // ❌ 拿到的可能是上一帧的 callback
 
 > React 官方对 `useEffectEvent` 的硬性限制：**只能在事件回调或 Effect 里调用，不能在渲染期间调用**。
 
-##### 翻车场景 2：作为 useEffect 依赖时 effect 不会重跑
+#### 翻车场景 2：作为 useEffect 依赖时 effect 不会重跑
 
 ```tsx
 const fetchData = useEvent(() => api.search(query))
@@ -307,10 +318,9 @@ const fetchData = useCallback(() => api.search(query), [query])
 useEffect(() => { fetchData() }, [fetchData])   // query 变 → effect 重跑 ✅
 ```
 
-##### 翻车场景 3：派生函数不是事件
+#### 翻车场景 3：派生函数不是事件
 
 ```tsx
-// 格式化器：渲染期间被调用，行为依赖外部值
 const formatter = useCallback(
     (n) => n.toLocaleString(locale, { currency }),
     [locale, currency]
@@ -320,7 +330,7 @@ return items.map(item => <div>{formatter(item.price)}</div>)
 
 这类"派生函数"本质是**数据**不是**事件**，用 `useEvent` 既违反渲染期间不能调用，又错误地把"行为变化"隐藏起来。
 
-#### 8.7 决策表
+### 2.7 决策表
 
 | 场景 | 推荐 | 原因 |
 |---|---|---|
@@ -331,10 +341,9 @@ return items.map(item => <div>{formatter(item.price)}</div>)
 | useEffect 依赖项，但希望 effect **不**因为它重跑 | ✅ `useEvent` | 正是 useEffectEvent 设计场景 |
 | 暴露给外部的库 API | ⚠️ 谨慎用 `useEvent` | 消费方可能依赖"引用变=行为变"语义 |
 
-#### 8.8 一句话区分
+### 2.8 一句话区分
 
 > **`useCallback`** 表达 "我是一个**值**，依赖变了我也变"  
 > **`useEvent`** 表达 "我是一个**动作的入口**，永远是我，但每次做的事是当下版本"
 
 把"动作入口"和"派生值"搞混，就会出 bug。
-
