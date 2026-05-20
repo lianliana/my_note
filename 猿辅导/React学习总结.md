@@ -127,6 +127,8 @@ export default function App() {
 
 ---
 
+
+
 ### 6. Hooks：state hook vs effect hook 挂在哪？为什么要保证顺序？
 
 #### 6.1 state/memo/ref 等 Hook：挂在 `fiber.memoizedState`（Hook 单链表）
@@ -171,4 +173,168 @@ React 这里仅保存 `lastEffect`（尾指针）。
 - 从 `ReactFiberWorkLoop.new.js` 的 `performUnitOfWork -> completeUnitOfWork` 走一遍，观察 effectList 如何被拼接
 - 看 `ReactFiberCompleteWork.new.js` 的 `HostComponent` 分支：创建实例、append children、`markUpdate/markRef`
 - 看 `ReactFiberCommitWork.new.js`：`commitPlacement/commitWork/commitHookEffectListMount` 如何真正触发 DOM 与 hooks effect
+
+---
+
+### 8. useEvent / useMemoizedFn 模式：稳定引用 + 最新闭包
+
+> 源自项目 `packages/student-chat-utils/src/hooks/useEvent.ts` 的讨论。
+
+#### 8.1 `useCallback` 的两难
+
+```typescript
+const fn = useCallback(() => doSomething(state), [state])
+```
+
+- 想要闭包最新 → 必须把 `state` 写进依赖 → 引用必然变 → 下游 memo 子组件/effect 反复重跑
+- 想要引用稳定 → 不写依赖 → 闭包僵在第一次渲染 → 出现"闭包陷阱"
+
+「引用稳定」和「闭包最新」在 `useCallback` 里是**互斥**的。
+
+#### 8.2 useEvent 的实现拆解
+
+```typescript
+export function useEvent<T extends (...args: any[]) => any>(callback: T): T {
+    const fnRef = React.useRef<any>()                                    // ①
+    fnRef.current = callback                                              // ②
+    const memoFn = React.useCallback<T>(
+        ((...args: any) => fnRef.current?.(...args)) as any,              // ③
+        []                                                                // ④
+    )
+    return memoFn
+}
+```
+
+| 步骤 | 作用 |
+|---|---|
+| ① `useRef` | 创建一个跨渲染共享的"盒子"（盒子本身永远是同一个引用） |
+| ② 每次渲染赋值 | 把"本次渲染拿到的最新 callback"塞进盒子，**不触发重渲染** |
+| ③④ 空依赖的 useCallback | 返回一个"转发器"：自身引用永远稳定，调用时去读 `fnRef.current` |
+
+工作流：
+
+```
+外部 ──调用──> memoFn (永远是同一个) ──读取──> fnRef.current (每次渲染被覆盖) ──执行──> 最新闭包
+```
+
+#### 8.3 为什么必须有 ③④（不能直接 `return fnRef.current`）
+
+如果只有 ①②、直接返回 `fnRef.current`：
+
+- 用户每次渲染传进来的 callback 都是新函数
+- 直接返回它 → 外部拿到的引用每次都变
+- "引用稳定"这个核心收益就丢了
+
+③④ 用一个 stable 的"壳函数"把"最新 callback"包起来，外部抓的是壳，壳内部去查最新闭包。
+
+#### 8.4 关键认知：`ref.current` 不会触发重渲染
+
+| 东西 | 跨渲染是否相同 | 修改后是否触发重渲染 |
+|---|---|---|
+| `useRef()` 返回的对象 | ✅ 永远相同 | —（也不会去改它） |
+| `ref.current` | ❌ 可任意覆盖 | ❌ 静默更新 |
+| `useState` 的 setter | — | ✅ 触发重渲染 |
+
+正因为 `ref.current` 是"**静默更新**"的，才能在渲染期间安心赋值而不形成死循环。"最新闭包"是**懒读取**，等下次有人调用 `memoFn()` 时才拿。
+
+#### 8.5 和 ahooks `useMemoizedFn` 的差异
+
+ahooks 源码（核心部分）：
+
+```typescript
+const fnRef = useRef(fn)
+fnRef.current = useMemo(() => fn, [fn])              // ② 改进
+const memoizedFn = useRef()
+if (!memoizedFn.current) {                            // ③ 改进
+    memoizedFn.current = function (this, ...args) {   // ④ 改进
+        return fnRef.current.apply(this, args)
+    }
+}
+return memoizedFn.current
+```
+
+| 维度 | useEvent | useMemoizedFn |
+|---|---|---|
+| 核心思想 | ref 存最新闭包 + 稳定壳函数 | 一样 |
+| 返回引用稳定性 | ✅ | ✅ |
+| 闭包始终最新 | ✅ | ✅ |
+| 类型校验 | ❌ | ✅ 开发期 warning |
+| Concurrent 安全 | ⚠️ 理论有竞态 | ✅ `useMemo` 修复 |
+| 壳函数实现 | `useCallback([])` | `useRef + if` |
+| 保留 `this` | ❌ 箭头函数 | ✅ `function + apply` |
+
+**关键差异点**：
+
+1. **`useMemo` vs 直接赋值**（最重要）
+   - React 18 Concurrent 模式下，渲染可能被丢弃，直接赋值会让"被丢弃的渲染"污染 ref
+   - `useMemo` 的回调结果与提交阶段一致，被丢弃的渲染不会泄露
+   - 对应 issue：[alibaba/hooks#728](https://github.com/alibaba/hooks/issues/728)
+
+2. **`function + apply` vs 箭头函数**
+   - 箭头函数：`this` 永远是 `undefined`，传给 DOM 事件 / 类组件方法时 `this` 丢失
+   - `function + apply`：转发 `this`，更通用
+   - 业务里 99% 用箭头函数 + 闭包，碰不到差异
+
+#### 8.6 useEvent 的适用边界（不是 useCallback 超集！）
+
+##### 翻车场景 1：渲染期间调用
+
+```tsx
+const process = useEvent(() => data.process())
+const result = process()   // ❌ 拿到的可能是上一帧的 callback
+```
+
+`fnRef.current = callback` 这行本身在渲染期间执行，**在它执行之前**调用 useEvent 返回的函数，读到的是上次渲染的旧值。React 18 严格模式双渲染、Concurrent 渲染丢弃也会让这个问题更不可控。
+
+> React 官方对 `useEffectEvent` 的硬性限制：**只能在事件回调或 Effect 里调用，不能在渲染期间调用**。
+
+##### 翻车场景 2：作为 useEffect 依赖时 effect 不会重跑
+
+```tsx
+const fetchData = useEvent(() => api.search(query))
+
+useEffect(() => {
+    fetchData()
+}, [fetchData])   // ❌ fetchData 引用永远稳定，effect 只跑一次
+```
+
+`useCallback` 的"依赖变就换引用"特性是**功能性信号**（告诉外界"我变了，你要响应"），不只是性能优化。`useEvent` 把这个信号阉割了。
+
+正确写法：
+
+```tsx
+const fetchData = useCallback(() => api.search(query), [query])
+useEffect(() => { fetchData() }, [fetchData])   // query 变 → effect 重跑 ✅
+```
+
+##### 翻车场景 3：派生函数不是事件
+
+```tsx
+// 格式化器：渲染期间被调用，行为依赖外部值
+const formatter = useCallback(
+    (n) => n.toLocaleString(locale, { currency }),
+    [locale, currency]
+)
+return items.map(item => <div>{formatter(item.price)}</div>)
+```
+
+这类"派生函数"本质是**数据**不是**事件**，用 `useEvent` 既违反渲染期间不能调用，又错误地把"行为变化"隐藏起来。
+
+#### 8.7 决策表
+
+| 场景 | 推荐 | 原因 |
+|---|---|---|
+| 事件回调（onClick / 异步回调 / 订阅回调） | ✅ `useEvent` | 引用稳定 + 闭包新 |
+| 传给 `React.memo` 子组件、子组件只调用不订阅 | ✅ `useEvent` | 避免无意义重渲染 |
+| 渲染期间会被调用的派生函数 | ❌ `useEvent`<br>✅ `useCallback` / `useMemo` | useEvent 不能渲染期间调用 |
+| useEffect 依赖项，且希望 effect 跟随输入变化 | ❌ `useEvent`<br>✅ `useCallback` | useEvent 让 effect 不重跑 |
+| useEffect 依赖项，但希望 effect **不**因为它重跑 | ✅ `useEvent` | 正是 useEffectEvent 设计场景 |
+| 暴露给外部的库 API | ⚠️ 谨慎用 `useEvent` | 消费方可能依赖"引用变=行为变"语义 |
+
+#### 8.8 一句话区分
+
+> **`useCallback`** 表达 "我是一个**值**，依赖变了我也变"  
+> **`useEvent`** 表达 "我是一个**动作的入口**，永远是我，但每次做的事是当下版本"
+
+把"动作入口"和"派生值"搞混，就会出 bug。
 
