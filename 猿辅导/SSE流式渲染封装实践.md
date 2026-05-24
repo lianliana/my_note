@@ -22,6 +22,27 @@ SSE 在 AI 对话场景的优势：
 - **单向足够**：AI 生成内容只需服务端推送，不需要双向通道，WebSocket 的双向能力在此场景是冗余的
 - **文本协议**：格式为 `key:value\n\n`，调试直观，Nginx/CDN 可直接透传
 
+  原始响应示例（`Content-Type: text/event-stream`）：
+
+  ```
+  data: Hello World\n\n
+
+  id: 1\ndata: {"type":"delta","text":"你好"}\n\n
+
+  event: done\ndata: [DONE]\n\n
+  ```
+
+  每个字段一行，**两个换行 `\n\n` 表示一个事件结束**。常用字段：
+
+  | 字段 | 含义 | 示例 |
+  |------|------|------|
+  | `data` | 消息内容（最常用） | `data: hello` |
+  | `event` | 自定义事件类型 | `event: done` |
+  | `id` | 事件 ID，断线重连时 `Last-Event-ID` 头会带上它 | `id: 42` |
+  | `retry` | 浏览器重连间隔（毫秒） | `retry: 3000` |
+
+  `value` 里可以含冒号，所以解析时用 `indexOf(':')` 定位分隔符而非 `split(':')`（见第三节 splitPart 实现）。
+
 ---
 
 ## 二、整体架构
@@ -201,7 +222,60 @@ onTimeout (23s)    → reject()    // 超时
 
 ---
 
-## 七、关键文件
+## 八、Web Streams 为什么好用，以及为什么 App 内不能用
+
+### Web Streams（TransformStream）的核心优势
+
+浏览器环境下 SSE 解析通过 `pipeThrough` 搭建流水线：
+
+```
+ReadableStream<Uint8Array>
+    → TextDecoderStream  (字节 → 字符串)
+    → splitStream()      (字符串 → 完整 SSE 事件块)
+    → splitPart()        (事件块 → { data, event, id } 对象)
+```
+
+这种方式好用的原因：
+
+- **背压（Backpressure）自动处理**：下游消费慢时，上游自动暂停读取，不会爆内存，无需手写流控逻辑
+- **懒消费**：数据到来才处理，不需要等整个响应结束后再统一解析
+- **可组合**：每个 `TransformStream` 职责单一，像 Unix 管道一样 `pipeThrough` 串联，替换某一层不影响其他层
+- **原生异步迭代**：配合 `for await...of` 直接消费，不用手写状态机或 callback
+
+对比老方式（手动 `onreadystatechange` + 字符串拼接 buffer），Web Streams 让流式解析变得声明式、无状态、内存友好。
+
+### 为什么 App 内不能用 Web Streams
+
+App 内网络请求走的不是浏览器网络栈，而是经过 **JS Bridge → Native 层**（OkHttp / URLSession 等）：
+
+```
+浏览器环境：
+  JS fetch() → 浏览器网络栈 → 返回标准 Response（.body 是真正的 ReadableStream）
+
+App 内 WebView 环境：
+  JS requestStream() → JS Bridge → Native 网络库 → 返回自定义对象
+```
+
+根本原因在于以下几点：
+
+1. **WebView 网络权限受限**：App 通常拦截 WebView 的网络请求，统一走 Native 网络库（为了统一注入 token、证书校验、流量监控等），所以 `fetch()` 的原生行为被替换掉了
+
+2. **JS Bridge 传递的是消息，不是流**：Native ↔ JS 之间通过序列化消息（字符串/JSON）通信，无法直接在 JS 侧构造出浏览器原生的 `ReadableStream` 实例，背后没有真正的字节流管道
+
+3. **`requestStream` 返回的是模拟对象**：代码里用 `as Response` 强制类型断言（并非真正的 `instanceof Response`），所以 `XStream` 入口的 `instanceof ReadableStream` 检查会失败：
+
+```typescript
+// x-stream/index.ts
+if (!(readableStream instanceof ReadableStream)) {
+    throw new Error('The options.readableStream must be an instance of ReadableStream.')
+}
+```
+
+这就是注释写"**浏览器解析 SSE 协议，端内解析走的是另一套逻辑**"的原因——App 内需要绕开 TransformStream，改由 Bridge 的回调机制驱动 SSE 数据消费。
+
+---
+
+## 九、关键文件
 
 | 功能 | 路径 |
 |------|------|
