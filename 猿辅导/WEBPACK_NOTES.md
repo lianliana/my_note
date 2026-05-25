@@ -355,6 +355,405 @@ webpack 会等 `tapAsync` / `tapPromise` 的回调完成后才继续下一步，
 
 ---
 
+## 8) Webpack 完整构建流程详解（每阶段能做什么）
+
+### 8.1 全局视角：五个大阶段
+
+```
+初始化 (Init)
+    ↓
+构建模块图 (Make)
+    ↓
+封装优化 (Seal)
+    ↓
+输出文件 (Emit)
+    ↓
+完成 (Done)
+```
+
+---
+
+### 8.2 初始化阶段（Initialization）
+
+#### 发生了什么
+
+```
+webpack(config) 被调用
+    │
+    ├─ 合并 config + CLI 参数 + 默认值
+    ├─ 创建 Compiler 对象（全局唯一，贯穿整个构建）
+    ├─ WebpackOptionsApply：根据 config 自动注册内置插件
+    │     optimization.splitChunks → SplitChunksPlugin
+    │     devtool: 'source-map' → SourceMapDevToolPlugin
+    │     mode: 'production' → TerserPlugin, ...
+    ├─ 执行所有外部插件的 apply(compiler)
+    ├─ 创建 resolver（enhanced-resolve，处理路径解析规则）
+    └─ 触发生命周期 hooks
+```
+
+#### 核心 Hooks
+
+| Hook | 时机 | 插件能做什么 |
+|------|------|-------------|
+| `environment` | 最早，环境准备好前 | 修改 process.env |
+| `entryOption` | entry 配置解析完 | 动态修改 entry，比如注入 HMR 客户端 |
+| `afterPlugins` | 所有插件 apply() 完成 | 做依赖插件执行后的初始化 |
+| `afterResolvers` | resolver 创建完 | 往 resolver 挂自定义 alias、extensions 规则 |
+
+#### 实战例子
+
+```javascript
+// 动态注入 HMR 客户端到每个 entry
+compiler.hooks.entryOption.tap('HmrPlugin', (context, entry) => {
+    Object.keys(entry).forEach(key => {
+        entry[key].import.unshift('webpack-hot-middleware/client')
+    })
+})
+```
+
+---
+
+### 8.3 Make 阶段（构建模块图）
+
+核心任务：**从 entry 出发，递归把所有被 import 的文件变成 Module 对象，建立完整依赖图。**
+
+#### 单个模块的处理流程
+
+```
+发现一个 import 'react'
+    │
+    ├─ [NormalModuleFactory] beforeResolve
+    │       可以修改 request（把 'react' 换成别的）
+    │       返回 false 可以完全跳过这个模块
+    │
+    ├─ [NormalModuleFactory] resolve
+    │       enhanced-resolve 开始工作：
+    │       'react' → 查 alias → 查 node_modules → '/node_modules/react/index.js'
+    │
+    ├─ [NormalModuleFactory] afterResolve
+    │       info.rawRequest  = 'react'            ← 你写的原始 import 路径
+    │       info.userRequest = '/node_modules/react/index.js' ← 解析后的真实路径
+    │       info.loaders     = [babel-loader, ...]  ← 匹配到的 loader 列表
+    │       可以在这里修改 loaders、修改 resourcePath
+    │
+    ├─ [NormalModuleFactory] createModule
+    │       即将 new NormalModule(...)
+    │       可以替换成自定义 Module 子类
+    │
+    ├─ [NormalModuleFactory] module
+    │       Module 对象已创建，交给 compilation 管理
+    │       可以给 module 打标签（module.buildMeta、module.buildInfo）
+    │
+    ├─ [Compilation] buildModule
+    │       模块开始构建，Loader 链即将执行
+    │       babel-loader → ts-loader → ... 依次处理文件内容
+    │
+    ├─ [Compilation] normalModuleLoader（NormalModule 内部）
+    │       Loader 执行前的最后机会
+    │       可以修改 loaderContext（注入自定义变量给 loader 使用）
+    │
+    │   ── Loader 链执行完，得到纯 JS 字符串 ──
+    │
+    ├─ acorn 解析 JS AST
+    │       找出所有 import / require / export
+    │       每找到一个 import，就把它加入待处理队列
+    │
+    ├─ [Compilation] succeedModule / failedModule
+    │       构建成功/失败
+    │       可以在这里统计 Loader 耗时、错误日志
+    │
+    └─ 队列里还有模块？重复上面流程
+```
+
+#### Make 阶段结束
+
+```javascript
+compilation.hooks.finishModules.tapAsync('MyPlugin', (modules, callback) => {
+    // 此时所有模块都构建完毕，完整的依赖图就在 modules 里
+    // modules 是一个 Set，包含所有 NormalModule 实例
+    // 每个 module 有：
+    //   module.resource    → 文件路径
+    //   module.dependencies → 它依赖的其他模块
+    //   module._source     → 构建后的源码
+    callback()
+})
+```
+
+#### 插件在 Make 阶段能做什么
+
+| 目标 | Hook | 做法 |
+|------|------|------|
+| Mock 掉某个模块 | `beforeResolve` | 返回 false，再用 `emit` 注入假文件 |
+| 给特定包加额外 loader | `afterResolve` | 修改 `data.loaders` |
+| 统计哪些包被引入了 | `afterResolve` | 收集 `rawRequest` |
+| 给 module 打自定义标签 | `module` | `module.buildMeta.myFlag = true` |
+| 统计 Loader 耗时 | `buildModule` + `succeedModule` | 记录时间差 |
+| 分析最终依赖图 | `finishModules` | 遍历 modules Set |
+
+---
+
+### 8.4 Seal 阶段（封装优化）
+
+模块图确定后，**不再接受新模块**，开始做优化并生成最终代码。
+
+#### Seal 阶段子流程
+
+```
+[Compilation] seal 触发
+    │
+    ├─ 生成 chunk 图
+    │       根据 entry 创建 initial chunk
+    │       根据 import() 创建 async chunk
+    │       每个 chunk 持有它包含的模块列表
+    │
+    ├─ [Compilation] optimizeDependencies
+    │       分析模块间依赖，去掉不必要的连接
+    │       副作用标记（sideEffects: false）在这里生效
+    │
+    ├─ [Compilation] beforeChunks / afterChunks
+    │       chunk 生成前后
+    │
+    ├─ [Compilation] optimizeModules
+    │       Tree Shaking 在这里完成：
+    │       - 标记哪些 export 被用到了
+    │       - 未被用到的 export 打上 "unused harmony export" 注释
+    │       - Terser 后续根据注释删除代码
+    │
+    ├─ [Compilation] optimizeChunks  ← SplitChunksPlugin 在这里工作
+    │       分析 chunk 之间的共同模块
+    │       把满足条件的模块抽到独立的 shared chunk
+    │       minChunks / maxSize / cacheGroups 规则在这里应用
+    │
+    ├─ [Compilation] optimizeModuleIds  ← 分配模块 ID
+    │       给每个 module 分配一个 ID（默认是数字，production 是 deterministic hash）
+    │       NamedModulesPlugin 在这里把 ID 改成有意义的名字
+    │
+    ├─ [Compilation] optimizeChunkIds
+    │       给每个 chunk 分配 ID
+    │
+    ├─ [Compilation] beforeHash
+    │       此时代码内容已定，即将算 hash
+    │       在这里修改内容会影响最终 hash
+    │
+    ├─ hash 计算
+    │       contenthash：根据单个文件内容
+    │       chunkhash：根据 chunk 内所有模块内容
+    │
+    ├─ [Compilation] afterHash
+    │       hash 已确定，在这里修改内容不会影响文件名
+    │       但文件内容实际会变（文件名和内容不一致，慎用）
+    │
+    ├─ [Compilation] processAssets（Webpack 5）
+    │       最重要的资源处理 hook，分多个阶段：
+    │       PROCESS_ASSETS_STAGE_ADDITIONS    → 添加新资源
+    │       PROCESS_ASSETS_STAGE_OPTIMIZE     → 优化资源
+    │       PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE → 压缩（Terser 在这里）
+    │       PROCESS_ASSETS_STAGE_SUMMARIZE    → 生成 stats
+    │       PROCESS_ASSETS_STAGE_REPORT       → 生成报告（BundleAnalyzer）
+    │
+    └─ [Compilation] afterSeal
+```
+
+#### 插件在 Seal 阶段能做什么
+
+| 目标 | Hook | 做法 |
+|------|------|------|
+| 自定义 chunk 分割 | `optimizeChunks` | 手动移动模块到不同 chunk |
+| 修改模块 ID | `optimizeModuleIds` | 遍历 modules，修改 `module.id` |
+| 在 hash 前注入版本号 | `beforeHash` | 修改 compilation.assets 里的内容 |
+| 代码压缩 | `processAssets (OPTIMIZE_SIZE)` | 替换 asset 内容为压缩后的版本 |
+| 添加 banner/license | `processAssets (ADDITIONS)` | 往文件头部拼字符串 |
+| 生成 stats 报告 | `processAssets (REPORT)` | 读 compilation 数据，写报告文件 |
+
+#### 访问 chunk 信息
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+    compilation.hooks.optimizeChunks.tap('MyPlugin', (chunks) => {
+        for (const chunk of chunks) {
+            console.log(chunk.name)       // chunk 名
+            console.log(chunk.id)         // chunk ID
+            console.log(chunk.files)      // 这个 chunk 对应的输出文件名
+
+            // 遍历 chunk 包含的所有模块
+            for (const module of compilation.chunkModules(chunk)) {
+                console.log(module.resource) // 模块文件路径
+            }
+        }
+    })
+})
+```
+
+---
+
+### 8.5 Emit 阶段（输出文件）
+
+把内存中的 `compilation.assets` 对象写入磁盘。
+
+#### assets 是什么
+
+```javascript
+compilation.assets = {
+    'main.js':          { source: () => '...', size: () => 1234 },
+    'main.js.map':      { source: () => '...', size: () => 5678 },
+    'vendors.chunk.js': { source: () => '...', size: () => 9999 },
+}
+```
+
+这个对象就是最终要写入磁盘的所有文件，**key 是文件名，value 有 `source()` 方法返回文件内容。**
+
+#### Hooks
+
+```
+compiler.hooks.shouldEmit
+    │   返回 false → 跳过输出（watch 模式下无变化时使用）
+    │
+compiler.hooks.emit  ← 最重要的输出 hook
+    │   compilation.assets 还可以增删改
+    │   addSubgameTag 在这里往 assets 里加空的标识文件
+    │
+    │   [每个文件写入磁盘]
+    │
+compiler.hooks.assetEmitted（Webpack 5）
+    │   每写完一个文件触发一次，参数是文件名和内容
+    │
+compiler.hooks.afterEmit
+        所有文件都写完了
+```
+
+#### 插件在 Emit 阶段能做什么
+
+| 目标 | Hook | 做法 |
+|------|------|------|
+| 注入 HTML 文件 | `emit` | 往 `compilation.assets` 加 `index.html` |
+| 删掉不需要的文件 | `emit` | `delete compilation.assets['unwanted.js']` |
+| 生成 manifest.json | `emit` | 遍历 assets，生成映射表写入 assets |
+| 复制静态资源 | `emit` | 把 public/ 目录文件加进 assets |
+| 上传 sourcemap | `afterEmit` | 读刚生成的 .map 文件，POST 到错误监控服务 |
+
+#### 典型例子：注入自定义文件
+
+```javascript
+compiler.hooks.emit.tapAsync('AddFilePlugin', (compilation, callback) => {
+    const info = JSON.stringify({ buildTime: Date.now(), version: '1.0.0' })
+    compilation.assets['build-info.json'] = {
+        source: () => info,
+        size:   () => info.length,
+    }
+    callback()
+})
+```
+
+---
+
+### 8.6 Done 阶段
+
+```javascript
+compiler.hooks.done.tap('MyPlugin', (stats) => {
+    // stats 包含完整的构建信息：
+    // stats.compilation.modules  → 所有模块
+    // stats.compilation.chunks   → 所有 chunk
+    // stats.compilation.errors   → 所有错误
+    // stats.compilation.warnings → 所有警告
+    // stats.endTime - stats.startTime → 构建耗时
+})
+```
+
+---
+
+### 8.7 完整 Hook 决策表
+
+**问：我想做 X，该在哪个 hook 里做？**
+
+| 我想做的事 | 应该用的 Hook | 原因 |
+|-----------|-------------|------|
+| 替换/mock 某个 npm 包 | `normalModuleFactory.beforeResolve` | 最早，连文件都不用读 |
+| 给特定模块加 loader | `normalModuleFactory.afterResolve` | 路径已确定，loader 列表可修改 |
+| 收集哪些包被引入了 | `normalModuleFactory.afterResolve` | 能同时拿到 rawRequest 和真实路径 |
+| 分析整个依赖图 | `compilation.finishModules` | Make 结束，所有 module 都已构建 |
+| 干预 chunk 分割 | `compilation.optimizeChunks` | chunk 已生成，此时可以重组 |
+| 修改模块 ID（影响缓存） | `compilation.optimizeModuleIds` | 专门分配 ID 的阶段 |
+| 代码压缩/转换 | `compilation.processAssets (OPTIMIZE)` | 代码已生成，hash 也算完了 |
+| 在 hash 前加内容（影响 hash） | `compilation.beforeHash` | hash 还没算 |
+| 注入额外文件到输出目录 | `compiler.emit` | assets 对象还可修改 |
+| 读取最终生成文件做处理 | `compiler.afterEmit` | 文件已写入磁盘 |
+| 构建完校验、上报 | `compiler.done` | 拿到完整 stats |
+
+> 核心规律：**越早的 hook 能影响的范围越大，越晚的 hook 拿到的信息越完整。**
+> 在 `beforeResolve` 可以直接掐掉一个模块，在 `done` 只能读不能改了。
+
+---
+
+### 8.8 一个完整插件的骨架
+
+```javascript
+class MyCompletePlugin {
+    constructor(options) {
+        this.options = options
+    }
+
+    apply(compiler) {
+        // 1. 初始化阶段：修改 entry
+        compiler.hooks.entryOption.tap('MyPlugin', (context, entry) => {
+            // entry 是 EntryPlugin 配置，可以动态增删
+        })
+
+        // 2. 拿到 compilation 实例后，继续挂深层 hooks
+        compiler.hooks.compilation.tap('MyPlugin', (compilation, { normalModuleFactory }) => {
+
+            // 3. Make 阶段：监控模块解析
+            normalModuleFactory.hooks.afterResolve.tap('MyPlugin', (resolveData) => {
+                const { rawRequest, userRequest } = resolveData.createData
+                // rawRequest = 'react', userRequest = '/node_modules/react/index.js'
+            })
+
+            // 4. Make 阶段：模块构建完成
+            compilation.hooks.succeedModule.tap('MyPlugin', (module) => {
+                // 每个模块构建成功
+            })
+
+            // 5. Seal 阶段：chunk 优化
+            compilation.hooks.optimizeChunks.tap('MyPlugin', (chunks) => {
+                // 遍历 chunks，可以移动模块
+            })
+
+            // 6. Seal 阶段：修改模块 ID
+            compilation.hooks.optimizeModuleIds.tap('MyPlugin', (modules) => {
+                for (const module of modules) {
+                    module.id = 'my-custom-id-' + module.id
+                }
+            })
+
+            // 7. Seal 阶段：处理最终资源
+            compilation.hooks.processAssets.tapAsync(
+                { name: 'MyPlugin', stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS },
+                async (assets) => {
+                    // 可以修改 assets 对象
+                }
+            )
+        })
+
+        // 8. Emit 阶段：注入文件
+        compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+            compilation.assets['injected.js'] = {
+                source: () => 'console.log("injected")',
+                size: () => 23,
+            }
+            callback()
+        })
+
+        // 9. Done 阶段：上报
+        compiler.hooks.done.tap('MyPlugin', (stats) => {
+            if (stats.compilation.errors.length > 0) {
+                // 上报错误
+            }
+        })
+    }
+}
+```
+
+---
+
 ## 7) VSCode 调试小贴士（你之前遇到的坑）
 
 你之前遇到过：VSCode 启动调试时用旧 Node（v14）导致 webpack-cli 报 `Cannot find module 'node:events'`。
