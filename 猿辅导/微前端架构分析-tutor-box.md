@@ -314,7 +314,93 @@ build: {
 
 ---
 
-## 六、关键文件速查
+## 七、怎么保证最后打包是对的
+
+### 先说结论
+
+整个过程只需要保证三件事：
+
+1. **Host 提供共享依赖**：React 等公共包只由 Host 打包。
+2. **Sub 使用 Host 的依赖**：子应用不再打包 React，而是从 Host 获取。
+3. **最后做验证**：确认子应用里没有第二份 React，并且双方拿到的是同一个 React 对象。
+
+```text
+确定共享依赖 → 打包 Host → 打包 Sub → 先加载 Host → 加载 Sub → 验证
+```
+
+### 7.1 确定共享依赖
+
+Host 和 Sub 的共享依赖名称必须对应：
+
+```javascript
+// Host
+new NamedSharedModulesPlugin(['react', 'react-dom', 'react-dom/client'])
+
+// Sub
+const SHARED_MODULES = ['react', 'react-dom/client']
+```
+
+注意：`react-dom` 和 `react-dom/client` 是两个不同模块。Sub 使用哪个名称，Host 就必须提供哪个名称。
+
+### 7.2 打包 Host
+
+Host 构建时要做三件事：
+
+- 给共享依赖设置固定模块 ID，例如 `"react"`。
+- 把 React 等依赖抽到 `vendors.js`。
+- 生成唯一的 `runtime.js`，统一管理模块。
+
+最终得到：
+
+```text
+runtime.js   webpack 模块运行时
+vendors.js   React 等共享依赖
+main.js      Host 业务代码
+```
+
+### 7.3 打包 Sub
+
+Sub 构建时要做三件事：
+
+- 把 React 设置为 external，不把 React 源码打进子应用。
+- 将 React 引用改为 `__webpack_require__("react")`，使其从 Host 获取。
+- 给私有模块增加 `sub-app/` 前缀，避免模块 ID 冲突。
+
+Sub 最终通过 `window.webpackJsonp.push(...)` 把自己的模块注册到 Host。
+
+### 7.4 保证加载顺序
+
+```text
+runtime.js → vendors.js → Host main.js → Sub main.js
+```
+
+Host 必须先准备好 runtime、共享依赖和子应用容器，然后才能加载 Sub。
+
+### 7.5 验证打包结果
+
+先执行：
+
+```bash
+cd /Users/huanghualian/projects/my_pratise/learn-webpack-shared
+pnpm build
+```
+
+然后检查两个重点：
+
+1. Sub 的 `main.js` 很小，没有包含完整 React 源码。
+2. 浏览器控制台执行下面代码，结果必须是 `true`：
+
+```javascript
+window.__HOST_REACT__ === window.__SUB_REACT__
+```
+
+满足这两个条件，就说明 React 没有重复打包，而且 Host 与 Sub 共用了同一个实例。
+
+> 当前 demo 已实际构建成功；Sub 产物约 2.54 KiB，没有包含完整 React 实现。
+
+---
+
+## 八、关键文件速查
 
 | 文件 | 作用 |
 |------|------|

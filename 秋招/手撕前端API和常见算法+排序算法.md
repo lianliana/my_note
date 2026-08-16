@@ -2520,6 +2520,40 @@ addTask(400,'4')
 ### LazyMan
 
 ```js
+// 原题
+// Promise写法
+class LazyMan {
+  constructor(name) {
+  }
+  sleep(time) {
+  }
+  eat(food) {
+  }
+  sleepFirst(time){
+  }
+}
+
+new LazyMan("Hank").sleep(10000).eat("dinner");
+// Hi! This is Hank!
+//等待10秒..
+// Wake up after 10
+// Eat dinner~
+
+// new LazyMan("Hank").eat("dinner").eat("supper");
+// Hi This is Hank!
+// Eat dinner~
+// Eat supper~
+
+new LazyMan("Hank").sleepFirst(5000).eat("supper");
+//等待5秒
+// Wake up after 5
+// Hi This is Hank!
+// Eat supper
+```
+
+
+
+```js
 // Promise写法
 class LazyMan {
   constructor(name) {
